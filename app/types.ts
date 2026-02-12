@@ -30,4 +30,8 @@ export interface IAppContext {
   setSidebarOpen: Dispatch<SetStateAction<boolean>>
   currentScreen: string
   setCurrentScreen: Dispatch<SetStateAction<string>>
+  currentConversationId: number | null
+  setCurrentConversationId: Dispatch<SetStateAction<number | null>>
+  selectedTransactionId: number | null
+  setSelectedTransactionId: Dispatch<SetStateAction<number | null>>
 }

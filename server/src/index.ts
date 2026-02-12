@@ -5,6 +5,13 @@ import jupiterSwapRouter from './jupiter/swapRouter'
 import bodyParser from 'body-parser'
 import 'dotenv/config'
 
+// Debug: Check if env vars are loaded
+console.log('🔑 Environment Check:', {
+  hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+  hasJupiterKey: !!process.env.JUPITER_API_KEY,
+  jupiterKeyPreview: process.env.JUPITER_API_KEY ? `${process.env.JUPITER_API_KEY.slice(0, 8)}...` : 'NOT LOADED'
+})
+
 const app = express()
 
 app.use(bodyParser.urlencoded({ extended: true }))

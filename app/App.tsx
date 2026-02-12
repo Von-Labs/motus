@@ -21,6 +21,7 @@ import { StyleSheet, LogBox, View } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './src/utils/reactQuery'
+import { initDatabase } from './src/utils/database'
 
 // Keep splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
@@ -38,7 +39,9 @@ export default function App() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false)
   const [currentScreen, setCurrentScreen] = useState<string>('chat')
-    const [fontsLoaded] = useFonts({
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
+  const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null)
+  const [fontsLoaded] = useFonts({
     'Geist-Regular': require('./assets/fonts/Geist-Regular.otf'),
     'Geist-Light': require('./assets/fonts/Geist-Light.otf'),
     'Geist-Bold': require('./assets/fonts/Geist-Bold.otf'),
@@ -56,6 +59,14 @@ export default function App() {
 
   async function configureStorage() {
     try {
+      console.log('🚀 === APP STARTING ===');
+      console.log('🚀 Initializing database...');
+
+      // Initialize SQLite database
+      await initDatabase()
+
+      console.log('🚀 Database initialized, setting up theme...');
+
       // Force set defiAI theme (clear old theme cache)
       await AsyncStorage.setItem('rnai-theme', 'defiAI')
       setTheme('defiAI')
@@ -64,8 +75,10 @@ export default function App() {
       if (_chatType) setChatType(JSON.parse(_chatType))
       const _imageModel = await AsyncStorage.getItem('rnai-imageModel')
       if (_imageModel) setImageModel(_imageModel)
+
+      console.log('🚀 === APP READY ===');
     } catch (err) {
-      console.log('error configuring storage', err)
+      console.log('❌ ERROR configuring storage:', err)
     }
   }
 
@@ -128,6 +141,10 @@ export default function App() {
               setSidebarOpen,
               currentScreen,
               setCurrentScreen,
+              currentConversationId,
+              setCurrentConversationId,
+              selectedTransactionId,
+              setSelectedTransactionId,
             }}
           >
             <ThemeContext.Provider

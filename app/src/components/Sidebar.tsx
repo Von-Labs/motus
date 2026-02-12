@@ -1,33 +1,26 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from "react-native";
-import { useContext, useRef, useEffect } from "react";
+import { View, Text, TouchableOpacity, Animated } from "react-native";
+import { useContext, useRef, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMobileWallet } from "@wallet-ui/react-native-web3js";
+import { getRecentConversations, Conversation } from "../utils/database";
+import { getStyles } from "./Sidebar.styles";
+import { WalletCard } from "./WalletCard";
+import { ConversationList } from "./ConversationList";
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Helper to format wallet address: 4 chars...4 chars
-const formatWalletAddress = (address: string) => {
-  if (!address) return "";
-  return `${address.slice(0, 4)}...${address.slice(-4)}`;
-};
-
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, setWalletAddress, setCurrentScreen } =
+  const { walletAddress, setWalletAddress, setCurrentScreen, setCurrentConversationId } =
     useContext(AppContext);
   const { disconnect } = useMobileWallet();
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const styles = getStyles(theme);
+  const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
 
   useEffect(() => {
     Animated.timing(slideAnim, {
@@ -35,7 +28,38 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       duration: 250,
       useNativeDriver: true,
     }).start();
+
+    // Load recent conversations when sidebar opens
+    if (isOpen) {
+      loadRecentConversations();
+    }
   }, [isOpen]);
+
+  async function loadRecentConversations() {
+    try {
+      const conversations = await getRecentConversations(5);
+      setRecentConversations(conversations);
+    } catch (error) {
+      console.error('Failed to load recent conversations:', error);
+    }
+  }
+
+  function handleNewChat() {
+    setCurrentConversationId(null);
+    setCurrentScreen('chat');
+    onClose();
+  }
+
+  function handleConversationSelect(conversation: Conversation) {
+    setCurrentConversationId(conversation.id);
+    setCurrentScreen('chat');
+    onClose();
+  }
+
+  function handleAllChats() {
+    setCurrentScreen('allChats');
+    onClose();
+  }
 
   const handleDisconnect = async () => {
     try {
@@ -77,36 +101,49 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Wallet Address Section */}
         {walletAddress && (
-          <View style={styles.walletSection}>
-            <View style={styles.walletCard}>
-              <View style={styles.walletIconContainer}>
-                <Ionicons name="ellipse" size={12} color={theme.tintColor} />
-              </View>
-              <View style={styles.walletInfo}>
-                <Text style={styles.walletLabel}>Connected Wallet</Text>
-                <Text style={styles.walletAddress}>
-                  {formatWalletAddress(walletAddress)}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <WalletCard
+            walletAddress={walletAddress}
+            theme={theme}
+            styles={styles}
+          />
         )}
+
+        {/* Recent Conversations */}
+        <ConversationList
+          conversations={recentConversations}
+          theme={theme}
+          styles={styles}
+          onSelectConversation={handleConversationSelect}
+          onViewAllChats={handleAllChats}
+        />
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => {
-              setCurrentScreen("chat");
-              onClose();
-            }}
+            onPress={handleNewChat}
           >
             <Ionicons
               name="chatbubble-outline"
               size={20}
               color={theme.textColor}
             />
-            <Text style={styles.menuText}>Chat</Text>
+            <Text style={styles.menuText}>New Chat</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setCurrentScreen("transactions");
+              onClose();
+            }}
+          >
+            <Ionicons
+              name="receipt-outline"
+              size={20}
+              color={theme.textColor}
+            />
+            <Text style={styles.menuText}>Transaction History</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -156,114 +193,3 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     </>
   );
 }
-
-const getStyles = (theme: any) =>
-  StyleSheet.create({
-    overlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      zIndex: 999,
-    },
-    sidebar: {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      bottom: 0,
-      width: 280,
-      backgroundColor: theme.backgroundColor,
-      borderRightWidth: 1,
-      borderRightColor: theme.borderColor,
-      zIndex: 1000,
-      padding: 20,
-      paddingTop: 50,
-    },
-    header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 30,
-    },
-    title: {
-      fontSize: 24,
-      fontFamily: theme.boldFont,
-      color: theme.textColor,
-    },
-    closeButton: {
-      padding: 5,
-    },
-    walletSection: {
-      marginBottom: 30,
-    },
-    walletCard: {
-      backgroundColor: theme.tintColor,
-      borderRadius: 12,
-      padding: 16,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    walletIconContainer: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: "rgba(0, 229, 229, 0.15)",
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 12,
-    },
-    walletInfo: {
-      flex: 1,
-    },
-    walletLabel: {
-      fontSize: 12,
-      color: theme.tintTextColor,
-      fontFamily: theme.lightFont,
-      opacity: 0.8,
-      marginBottom: 4,
-    },
-    walletAddress: {
-      fontSize: 16,
-      color: theme.tintTextColor,
-      fontFamily: theme.semiBoldFont,
-      letterSpacing: 1,
-    },
-    menuSection: {
-      flex: 1,
-    },
-    menuItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 16,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      marginBottom: 8,
-    },
-    menuText: {
-      fontSize: 16,
-      color: theme.textColor,
-      fontFamily: theme.regularFont,
-      marginLeft: 16,
-    },
-    footer: {
-      borderTopWidth: 1,
-      borderTopColor: theme.borderColor,
-      paddingTop: 20,
-    },
-    disconnectButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 12,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      backgroundColor: "rgba(255, 68, 68, 0.1)",
-    },
-    disconnectText: {
-      fontSize: 16,
-      color: "#ff4444",
-      fontFamily: theme.semiBoldFont,
-      marginLeft: 12,
-    },
-  });

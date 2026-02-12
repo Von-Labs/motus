@@ -21,6 +21,10 @@ const AppContext = createContext<IAppContext>({
   setSidebarOpen: () => null,
   currentScreen: 'chat',
   setCurrentScreen: () => null,
+  currentConversationId: null,
+  setCurrentConversationId: () => null,
+  selectedTransactionId: null,
+  setSelectedTransactionId: () => null,
 })
 
 export {

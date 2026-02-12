@@ -3,7 +3,8 @@ import {
   Text,
   StyleSheet,
   TouchableHighlight,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native'
 import { useContext } from 'react'
 import { AppContext, ThemeContext } from '../context'
@@ -11,6 +12,7 @@ import {
   AnthropicIcon
  } from '../components/index'
 import { MODELS } from '../../constants'
+import { debugDatabase } from '../utils/database'
 
 const models = [
   MODELS.claudeOpus,

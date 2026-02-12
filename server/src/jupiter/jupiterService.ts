@@ -23,30 +23,43 @@ import {
 } from './types'
 
 const JUPITER_API_BASE = 'https://api.jup.ag'
-const JUPITER_API_KEY = process.env.JUPITER_API_KEY || ''
 
 // Helper to make API requests
 async function jupiterRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  // Read API key at runtime, not at module load time
+  const JUPITER_API_KEY = process.env.JUPITER_API_KEY || ''
+
+  const url = `${JUPITER_API_BASE}${endpoint}`
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(JUPITER_API_KEY && { 'x-api-key': JUPITER_API_KEY }),
     ...options.headers
   }
 
-  const response = await fetch(`${JUPITER_API_BASE}${endpoint}`, {
+  const response = await fetch(url, {
     ...options,
     headers
   })
 
   if (!response.ok) {
     const error = await response.text()
+    console.error('❌ Jupiter API Error:', {
+      status: response.status,
+      error
+    })
     throw new Error(`Jupiter API Error: ${response.status} - ${error}`)
   }
 
-  return response.json()
+  const data = await response.json()
+  console.log('✅ Jupiter API Success:', {
+    endpoint,
+    dataPreview: JSON.stringify(data).substring(0, 200)
+  })
+
+  return data
 }
 
 export class JupiterService {

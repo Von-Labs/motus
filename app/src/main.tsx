@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { StyleSheet, View } from "react-native";
-import { Bluetooth, Chat, Settings } from "./screens";
+import { Bluetooth, Chat, Settings, TransactionHistory, TransactionDetail } from "./screens";
+import { AllChats } from "./screens/allChats";
 import { Header, Sidebar, OnboardingScreen } from "./components";
 import {
   SafeAreaProvider,
@@ -40,6 +41,9 @@ function MainComponent() {
       {currentScreen === "chat" && <Chat />}
       {currentScreen === "settings" && <Settings />}
       {currentScreen === "bluetooth" && <Bluetooth />}
+      {currentScreen === "allChats" && <AllChats />}
+      {currentScreen === "transactions" && <TransactionHistory />}
+      {currentScreen === "transactionDetail" && <TransactionDetail />}
     </View>
   );
 }

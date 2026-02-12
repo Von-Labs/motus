@@ -14,6 +14,7 @@ import "react-native-get-random-values";
 import { useContext, useEffect, useState, useRef } from "react";
 import { ThemeContext, AppContext } from "../context";
 import { getEventSource, getFirstNCharsOrLess, getChatType } from "../utils";
+import { saveConversation, loadConversation } from "../utils/conversationStorage";
 import {
   BLE_PROTOCOL_MESSAGE,
   addBleProtocolListener,
@@ -93,8 +94,48 @@ export function Chat() {
   };
 
   const { theme } = useContext(ThemeContext);
-  const { chatType, walletAddress } = useContext(AppContext);
+  const { chatType, walletAddress, currentConversationId, setCurrentConversationId } = useContext(AppContext);
   const styles = getStyles(theme);
+
+  // Load conversation when currentConversationId changes
+  useEffect(() => {
+    if (currentConversationId) {
+      loadConversationData(currentConversationId);
+    } else {
+      // Clear current model's chat state when starting new conversation
+      const modelLabel = chatType.label;
+      const currentState = getChatState(modelLabel);
+      if (currentState.messages.length > 0) {
+        updateChatState(modelLabel, () => createEmptyChatState());
+      }
+    }
+  }, [currentConversationId]);
+
+  async function loadConversationData(conversationId: number) {
+    try {
+      const { conversation, messages } = await loadConversation(conversationId);
+
+      // Clear ALL other models' chat states before loading
+      const modelLabel = conversation.model;
+      const allModels = Object.keys(chatStates);
+
+      // Clear chat states for models different from the loaded conversation
+      allModels.forEach((model) => {
+        if (model !== modelLabel) {
+          updateChatState(model, () => createEmptyChatState());
+        }
+      });
+
+      // Load messages into the appropriate model's chat state
+      updateChatState(modelLabel, () => ({
+        messages,
+        index: uuid(),
+        apiMessages: '',
+      }));
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+    }
+  }
 
   useEffect(() => {
     const subscription = addBleProtocolListener((event) => {
@@ -124,7 +165,7 @@ export function Chat() {
     setCurrentToolingSteps([]);
 
     if (chatType.label.includes("claude")) {
-      generateClaudeResponse();
+      generateClaudeResponse(input);
     } else if (chatType.label.includes("gpt")) {
       generateGptResponse();
     } else if (chatType.label.includes("gemini")) {
@@ -201,6 +242,8 @@ export function Chat() {
         } else {
           setLoading(false);
           es.close();
+          // Auto-save conversation after response completes
+          autoSaveConversation(messageArray, modelLabel);
         }
       } else if (event.type === "error") {
         console.error("Connection error:", event.message);
@@ -279,6 +322,8 @@ export function Chat() {
             apiMessages: `${prev.apiMessages}\n\nPrompt: ${input}\n\nResponse:${localResponse}`,
           }));
           es.close();
+          // Auto-save conversation after response completes
+          autoSaveConversation(messageArray, modelLabel);
         }
       } else if (event.type === "error") {
         console.error("Connection error:", event.message);
@@ -381,6 +426,13 @@ Always confirm the wallet address before performing any transactions.`;
             if (data.type === "text") {
               // Text response from Claude
               localResponse = localResponse + data.text;
+
+              // Update message array with assistant response
+              messageArray[messageArray.length - 1].assistant = localResponse;
+              updateChatState(modelLabel, (prev) => ({
+                ...prev,
+                messages: JSON.parse(JSON.stringify(messageArray)),
+              }));
             } else if (data.type === "tool_use") {
               // Tool is being used - add to tooling steps and hide from main text
               const toolIcon =
@@ -593,6 +645,15 @@ Always confirm the wallet address before performing any transactions.`;
           setLoading(false);
           setCurrentToolingSteps([]); // Clear tooling steps when done
           es.close();
+
+          // Update state and save conversation
+          updateChatState(modelLabel, (prev) => ({
+            ...prev,
+            messages: JSON.parse(JSON.stringify(messageArray)),
+          }));
+
+          // Auto-save with direct data instead of reading from state
+          autoSaveConversation(messageArray, modelLabel);
         }
       } else if (event.type === "error") {
         console.error("Connection error:", event.message);
@@ -633,6 +694,31 @@ Always confirm the wallet address before performing any transactions.`;
     if (loading) return;
     const modelLabel = chatType.label;
     updateChatState(modelLabel, () => createEmptyChatState());
+    // Start a new conversation
+    setCurrentConversationId(null);
+  }
+
+  // Auto-save conversation after each message
+  // Pass messages directly to avoid state timing issues
+  async function autoSaveConversation(messages: any[], model: string) {
+    try {
+      if (messages.length === 0) {
+        return;
+      }
+
+      const savedId = await saveConversation(
+        currentConversationId,
+        messages,
+        model
+      );
+
+      // Update conversation ID if this is a new conversation
+      if (!currentConversationId && savedId) {
+        setCurrentConversationId(savedId);
+      }
+    } catch (error) {
+      console.error('Failed to auto-save conversation:', error);
+    }
   }
 
   function renderItem({ item, index }: { item: any; index: number }) {
