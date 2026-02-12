@@ -98,3 +98,68 @@ const [theme, setTheme] = useState<string>('defiAI')
 ```
 
 All components automatically inherit theme colors through React Context (`ThemeContext`).
+
+# Code Organization
+
+## File Size and Component Structure
+
+To maintain code quality and readability, follow these guidelines:
+
+### File Size Limits
+- **Maximum file size**: 400 lines of code
+- **Recommended size**: 200-300 lines per file
+- Large files become difficult to maintain, test, and review
+
+### When to Split Files
+
+Split files when:
+- File exceeds 400 lines
+- Multiple responsibilities or concerns exist
+- Components contain complex nested logic
+- Styles take up significant space (150+ lines)
+
+### How to Split Files
+
+1. **Extract Components**
+   ```typescript
+   // Before: One large file with nested components
+   // screens/transactionHistory.tsx (500+ lines)
+
+   // After: Split into smaller files
+   // screens/transactionHistory.tsx (main screen)
+   // components/TransactionCard.tsx (reusable card)
+   // components/TransactionFilters.tsx (filter UI)
+   ```
+
+2. **Separate Styles**
+   ```typescript
+   // Option 1: Separate styles file
+   // components/TransactionCard.tsx
+   // components/TransactionCard.styles.ts
+
+   // Option 2: Use inline styles for small components
+   ```
+
+3. **Extract Utils and Helpers**
+   ```typescript
+   // Move helper functions to utility files
+   // utils/transactionHelpers.ts
+   // utils/formatters.ts
+   ```
+
+4. **Split by Feature**
+   ```typescript
+   // Group related components by feature
+   // features/transactions/
+   //   - TransactionList.tsx
+   //   - TransactionDetail.tsx
+   //   - TransactionCard.tsx
+   //   - transactionUtils.ts
+   ```
+
+### Benefits
+- Easier code navigation and understanding
+- Better component reusability
+- Simplified testing and debugging
+- Faster compile times
+- Better git diffs and code review
