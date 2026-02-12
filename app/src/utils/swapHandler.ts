@@ -1,5 +1,6 @@
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { createWalletTransaction } from "./database";
 
 /**
  * Handle swap transaction from Claude tool response
@@ -10,8 +11,6 @@ export async function handleSwapTransaction(swapData: any): Promise<string> {
   if (!swapData.transaction) {
     throw new Error("No transaction found in swap data");
   }
-
-  console.log("Processing swap transaction from Claude...");
 
   // Use Solana Mobile Wallet Adapter to sign and send transaction
   const signatures = await transact(async (wallet: any) => {
@@ -29,10 +28,8 @@ export async function handleSwapTransaction(swapData: any): Promise<string> {
     let transaction: Transaction | VersionedTransaction;
     try {
       transaction = VersionedTransaction.deserialize(uint8Array);
-      console.log("Deserialized as VersionedTransaction");
     } catch (e) {
       transaction = Transaction.from(transactionBuffer);
-      console.log("Deserialized as legacy Transaction");
     }
 
     // Sign and send the transaction
@@ -44,8 +41,24 @@ export async function handleSwapTransaction(swapData: any): Promise<string> {
   });
 
   const signature = signatures[0];
-  console.log(`Swap transaction successful: ${signature}`);
-  console.log(`View on Solscan: https://solscan.io/tx/${signature}`);
+
+  // Save transaction to database
+  try {
+    await createWalletTransaction(
+      'swap',
+      signature,
+      'success',
+      {
+        inputMint: swapData.inputMint,
+        outputMint: swapData.outputMint,
+        inAmount: swapData.inAmount,
+        outAmount: swapData.outAmount,
+        priceImpactPct: swapData.priceImpactPct,
+      }
+    );
+  } catch (error) {
+    console.error('Failed to save transaction to database:', error);
+  }
 
   return signature;
 }
@@ -61,8 +74,6 @@ export async function handleTriggerTransaction(
   if (!triggerData.transaction) {
     throw new Error("No transaction found in trigger data");
   }
-
-  console.log("Processing trigger order transaction from Claude...");
 
   // Use Solana Mobile Wallet Adapter to sign and send transaction
   const signatures = await transact(async (wallet: any) => {
@@ -80,10 +91,8 @@ export async function handleTriggerTransaction(
     let transaction: Transaction | VersionedTransaction;
     try {
       transaction = VersionedTransaction.deserialize(uint8Array);
-      console.log("Deserialized as VersionedTransaction");
     } catch (e) {
       transaction = Transaction.from(transactionBuffer);
-      console.log("Deserialized as legacy Transaction");
     }
 
     // Sign and send the transaction
@@ -95,8 +104,27 @@ export async function handleTriggerTransaction(
   });
 
   const signature = signatures[0];
-  console.log(`Trigger order transaction successful: ${signature}`);
-  console.log(`View on Solscan: https://solscan.io/tx/${signature}`);
+
+  // Save transaction to database
+  try {
+    // Determine transaction type
+    const isCancelOrder = !('makingAmount' in triggerData || 'order' in triggerData);
+    const type = isCancelOrder ? 'cancel_order' : 'trigger_order';
+
+    await createWalletTransaction(
+      type,
+      signature,
+      'success',
+      {
+        requestId: triggerData.requestId,
+        order: triggerData.order,
+        makingAmount: triggerData.makingAmount,
+        takingAmount: triggerData.takingAmount,
+      }
+    );
+  } catch (error) {
+    console.error('Failed to save transaction to database:', error);
+  }
 
   return signature;
 }

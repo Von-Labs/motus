@@ -90,13 +90,15 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
       let conversationMessages = [...messages]
       let continueLoop = true
 
+      const apiKey = process.env.ANTHROPIC_API_KEY
+
       while (continueLoop) {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01',
-            'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+            'x-api-key': apiKey || ''
           },
           body: JSON.stringify({
             model: selectedModel,

@@ -98,6 +98,11 @@ export async function handleToolCall(toolName: string, toolInput: any) {
         throw new Error(`Unknown tool: ${toolName}`)
     }
   } catch (error: any) {
+    console.error('❌ Jupiter Tool Error:', {
+      tool: toolName,
+      error: error.message,
+      stack: error.stack
+    })
     return {
       error: true,
       message: error.message || 'Tool execution failed',

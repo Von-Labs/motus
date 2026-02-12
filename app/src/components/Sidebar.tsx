@@ -4,11 +4,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  ScrollView,
 } from "react-native";
-import { useContext, useRef, useEffect } from "react";
+import { useContext, useRef, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMobileWallet } from "@wallet-ui/react-native-web3js";
+import { getRecentConversations, Conversation } from "../utils/database";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -23,11 +25,12 @@ const formatWalletAddress = (address: string) => {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, setWalletAddress, setCurrentScreen } =
+  const { walletAddress, setWalletAddress, setCurrentScreen, setCurrentConversationId } =
     useContext(AppContext);
   const { disconnect } = useMobileWallet();
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const styles = getStyles(theme);
+  const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
 
   useEffect(() => {
     Animated.timing(slideAnim, {
@@ -35,7 +38,40 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       duration: 250,
       useNativeDriver: true,
     }).start();
+
+    // Load recent conversations when sidebar opens
+    if (isOpen) {
+      loadRecentConversations();
+    }
   }, [isOpen]);
+
+  async function loadRecentConversations() {
+    try {
+      const conversations = await getRecentConversations(5);
+      console.log('💬 Loaded conversations:', conversations.length);
+      console.log('💬 Conversations data:', JSON.stringify(conversations, null, 2));
+      setRecentConversations(conversations);
+    } catch (error) {
+      console.error('Failed to load recent conversations:', error);
+    }
+  }
+
+  function handleNewChat() {
+    setCurrentConversationId(null);
+    setCurrentScreen('chat');
+    onClose();
+  }
+
+  function handleConversationSelect(conversation: Conversation) {
+    setCurrentConversationId(conversation.id);
+    setCurrentScreen('chat');
+    onClose();
+  }
+
+  function handleAllChats() {
+    setCurrentScreen('allChats');
+    onClose();
+  }
 
   const handleDisconnect = async () => {
     try {
@@ -92,21 +128,74 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </View>
         )}
 
+        {/* Recent Conversations */}
+        {recentConversations.length > 0 && (
+          <View style={styles.conversationsSection}>
+            <Text style={styles.sectionTitle}>Recent Chats</Text>
+            <ScrollView style={styles.conversationsList}>
+              {recentConversations.map((conv) => (
+                <TouchableOpacity
+                  key={conv.id}
+                  style={styles.conversationItem}
+                  onPress={() => handleConversationSelect(conv)}
+                >
+                  <Ionicons
+                    name="chatbubble-outline"
+                    size={16}
+                    color={theme.textColor}
+                    style={{ opacity: 0.7 }}
+                  />
+                  <View style={styles.conversationInfo}>
+                    <Text style={styles.conversationTitle} numberOfLines={1}>
+                      {conv.title}
+                    </Text>
+                    <Text style={styles.conversationModel}>{conv.model}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.allChatsButton}
+              onPress={handleAllChats}
+            >
+              <Text style={styles.allChatsText}>View All Chats</Text>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={16}
+                color={theme.tintColor}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Menu Items */}
         <View style={styles.menuSection}>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => {
-              setCurrentScreen("chat");
-              onClose();
-            }}
+            onPress={handleNewChat}
           >
             <Ionicons
               name="chatbubble-outline"
               size={20}
               color={theme.textColor}
             />
-            <Text style={styles.menuText}>Chat</Text>
+            <Text style={styles.menuText}>New Chat</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setCurrentScreen("transactions");
+              onClose();
+            }}
+          >
+            <Ionicons
+              name="receipt-outline"
+              size={20}
+              color={theme.textColor}
+            />
+            <Text style={styles.menuText}>Transaction History</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -265,5 +354,62 @@ const getStyles = (theme: any) =>
       color: "#ff4444",
       fontFamily: theme.semiBoldFont,
       marginLeft: 12,
+    },
+    conversationsSection: {
+      flex: 1,
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      color: theme.textColor,
+      fontFamily: theme.semiBoldFont,
+      opacity: 0.6,
+      marginBottom: 12,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    conversationsList: {
+      flex: 1,
+      marginBottom: 12,
+    },
+    conversationItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginBottom: 6,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+    },
+    conversationInfo: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    conversationTitle: {
+      fontSize: 14,
+      color: theme.textColor,
+      fontFamily: theme.regularFont,
+      marginBottom: 2,
+    },
+    conversationModel: {
+      fontSize: 11,
+      color: theme.textColor,
+      fontFamily: theme.lightFont,
+      opacity: 0.5,
+    },
+    allChatsButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+    },
+    allChatsText: {
+      fontSize: 14,
+      color: theme.tintColor,
+      fontFamily: theme.mediumFont,
     },
   });
