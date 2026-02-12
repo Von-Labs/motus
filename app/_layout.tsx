@@ -1,0 +1,20 @@
+import { MobileWalletProvider } from "@wallet-ui/react-native-web3js";
+import { clusterApiUrl } from "@solana/web3.js";
+import App from "./App";
+
+const chain = "solana:devnet";
+const endpoint = clusterApiUrl("devnet");
+
+const identity = {
+  name: "My Solana App",
+  uri: "https://mysolanaapp.com",
+  icon: "favicon.png", // Must be a relative path to the uri above
+};
+
+export default function RootLayout() {
+  return (
+    <MobileWalletProvider chain={chain} endpoint={endpoint} identity={identity}>
+      <App />
+    </MobileWalletProvider>
+  );
+}
