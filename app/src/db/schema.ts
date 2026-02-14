@@ -24,7 +24,20 @@ export const messages = sqliteTable('messages', {
 // Wallet transactions table
 export const walletTransactions = sqliteTable('wallet_transactions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  type: text('type', { enum: ['swap', 'trigger_order', 'cancel_order'] }).notNull(),
+  type: text('type', {
+    enum: [
+      'swap',
+      'trigger_order',
+      'cancel_order',
+      'drift_market_order',
+      'drift_limit_order',
+      'drift_stop_loss',
+      'drift_take_profit',
+      'drift_close_position',
+      'drift_cancel_order',
+      'drift_other'
+    ]
+  }).notNull(),
   signature: text('signature').notNull(),
   status: text('status', { enum: ['success', 'failed'] }).notNull(),
   details: text('details').notNull(), // JSON string with transaction details
