@@ -14,7 +14,6 @@ const env = (process.env.EXPO_PUBLIC_ENV || 'DEVELOPMENT').toUpperCase()
 const devUrl = process.env.EXPO_PUBLIC_DEV_API_URL
 const prodUrl = process.env.EXPO_PUBLIC_PROD_API_URL
 const rawDomain = env === 'DEVELOPMENT' ? devUrl : prodUrl
-
 export const DOMAIN = normalizeDomain(rawDomain || devUrl || prodUrl || '')
 
 export const MODELS = {

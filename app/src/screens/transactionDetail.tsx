@@ -12,7 +12,7 @@ import { useContext, useState, useEffect } from "react";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getWalletTransactionById, WalletTransaction } from "../utils/database";
-import { formatDate, getTypeIcon, getTypeLabel } from "../utils/transactionHelpers";
+import { formatDate, getTypeIcon, getTypeLabel, formatAmountDisplay } from "../utils/transactionHelpers";
 import { getStyles } from "./transactionDetail.styles";
 
 export function TransactionDetail() {
@@ -145,18 +145,24 @@ export function TransactionDetail() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.detailsCard}>
-            {Object.entries(details).map(([key, value]) => (
-              <View key={key} style={styles.detailRow}>
-                <Text style={styles.detailLabel}>
-                  {key.replace(/([A-Z])/g, " $1").trim()}
-                </Text>
-                <Text style={styles.detailValue} selectable={true}>
-                  {typeof value === "string" && value.length > 40
+            {Object.entries(details).map(([key, value]) => {
+              const displayValue =
+                key === "amount"
+                  ? formatAmountDisplay(details, transaction.type)
+                  : typeof value === "string" && value.length > 40
                     ? `${value.slice(0, 20)}...${value.slice(-20)}`
-                    : String(value)}
-                </Text>
-              </View>
-            ))}
+                    : String(value);
+              return (
+                <View key={key} style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>
+                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  </Text>
+                  <Text style={styles.detailValue} selectable={true}>
+                    {displayValue}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { WalletTransaction } from "../utils/database";
+import { formatAmountDisplay } from "../utils/transactionHelpers";
 
 interface TransactionCardProps {
   transaction: WalletTransaction;
@@ -92,10 +93,12 @@ export function TransactionCard({
               </Text>
             </View>
           )}
-          {details.amount && (
+          {details.amount != null && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount:</Text>
-              <Text style={styles.detailValue}>{details.amount}</Text>
+              <Text style={styles.detailValue}>
+                {formatAmountDisplay(details, transaction.type)}
+              </Text>
             </View>
           )}
         </View>

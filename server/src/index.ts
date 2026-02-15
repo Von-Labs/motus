@@ -2,6 +2,7 @@ import express from 'express'
 import chatRouter from './chat/chatRouter'
 import imagesRouter from './images/imagesRouter'
 import jupiterSwapRouter from './jupiter/swapRouter'
+import { sendRouter } from './sends'
 import bodyParser from 'body-parser'
 import 'dotenv/config'
 
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 app.use('/chat', chatRouter)
 app.use('/images', imagesRouter)
 app.use('/api/jupiter', jupiterSwapRouter)
+app.use('/api/sends', sendRouter)
 
 app.listen(3050, () => {
   console.log('Server started on port 3050')

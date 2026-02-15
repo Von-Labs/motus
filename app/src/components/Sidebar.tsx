@@ -134,6 +134,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
+              setCurrentScreen("send");
+              onClose();
+            }}
+          >
+            <Ionicons
+              name="send-outline"
+              size={20}
+              color={theme.textColor}
+            />
+            <Text style={styles.menuText}>Gửi SOL</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
               setCurrentScreen("transactions");
               onClose();
             }}

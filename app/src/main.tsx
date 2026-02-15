@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { StyleSheet, View } from "react-native";
-import { Bluetooth, Chat, Settings, TransactionHistory, TransactionDetail } from "./screens";
+import { Bluetooth, Chat, Settings, TransactionHistory, TransactionDetail, SendToken } from "./screens";
 import { AllChats } from "./screens/allChats";
 import { Header, Sidebar, OnboardingScreen } from "./components";
 import {
@@ -44,6 +44,7 @@ function MainComponent() {
       {currentScreen === "allChats" && <AllChats />}
       {currentScreen === "transactions" && <TransactionHistory />}
       {currentScreen === "transactionDetail" && <TransactionDetail />}
+      {currentScreen === "send" && <SendToken />}
     </View>
   );
 }

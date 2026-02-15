@@ -6,18 +6,23 @@ import {
   ScrollView,
   Alert
 } from 'react-native'
-import { useContext } from 'react'
+import React, { useContext } from 'react'
 import { AppContext, ThemeContext } from '../context'
 import {
-  AnthropicIcon
- } from '../components/index'
+  AnthropicIcon,
+  OpenAIIcon,
+  GeminiIcon
+} from '../components/index'
 import { MODELS } from '../../constants'
 import { debugDatabase } from '../utils/database'
 
 const models = [
   MODELS.claudeOpus,
   MODELS.claudeSonnet,
-  MODELS.claudeHaiku
+  MODELS.claudeHaiku,
+  MODELS.gpt52,
+  MODELS.gpt5Mini,
+  MODELS.gemini
 ]
 
 export function Settings() {
@@ -56,11 +61,11 @@ export function Settings() {
                   style={{...styles.chatChoiceButton, ...getDynamicViewStyle(chatType.label, model.label, theme)}}
                 >
                 <View style={{marginRight: 8}}>
-                  <AnthropicIcon
-                    theme={theme}
-                    size={18}
-                    selected={chatType.label === model.label}
-                  />
+                  {React.createElement(model.icon, {
+                    theme,
+                    size: 18,
+                    selected: chatType.label === model.label
+                  })}
                 </View>
                 <Text
                   style={{...styles.chatTypeText, ...getDynamicTextStyle(chatType.label, model.label, theme)}}

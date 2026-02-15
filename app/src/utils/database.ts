@@ -144,7 +144,7 @@ export async function debugDatabase(): Promise<void> {
 // ===== Wallet Transactions =====
 
 export async function createWalletTransaction(
-  type: 'swap' | 'trigger_order' | 'cancel_order',
+  type: 'swap' | 'trigger_order' | 'cancel_order' | 'send',
   signature: string,
   status: 'success' | 'failed',
   details: any

@@ -129,6 +129,64 @@ export async function handleTriggerTransaction(
   return signature;
 }
 
+export type SolanaCluster = 'mainnet-beta' | 'devnet';
+
+/**
+ * Handle send token transaction (SOL or SPL) from /api/sends/prepare response
+ * @param sendData - Response from POST /api/sends/prepare: { transaction, type, amount, mint? }
+ * @param cluster - Network: 'mainnet-beta' or 'devnet'. Must match server SOLANA_RPC_URL.
+ * @returns Transaction signature
+ */
+export async function handleSendTransaction(
+  sendData: {
+    transaction: string;
+    type: 'sol' | 'spl';
+    amount: string;
+    mint?: string;
+  },
+  cluster: SolanaCluster = 'mainnet-beta'
+): Promise<string> {
+  if (!sendData.transaction) {
+    throw new Error("No transaction found in send data");
+  }
+
+  const signatures = await transact(async (wallet: any) => {
+    await wallet.authorize({
+      cluster,
+      identity: { name: 'Solana DeFi Agent' },
+    });
+
+    const transactionBuffer = Buffer.from(sendData.transaction, 'base64');
+    // Server returns legacy Transaction (SystemProgram.transfer or createTransferCheckedInstruction)
+    const transaction = Transaction.from(transactionBuffer);
+
+    const txSignatures = await wallet.signAndSendTransactions({
+      transactions: [transaction],
+    });
+
+    return txSignatures;
+  });
+
+  const signature = signatures[0];
+
+  try {
+    await createWalletTransaction(
+      'send',
+      signature,
+      'success',
+      {
+        type: sendData.type,
+        amount: sendData.amount,
+        mint: sendData.mint,
+      }
+    );
+  } catch (error) {
+    console.error('Failed to save send transaction to database:', error);
+  }
+
+  return signature;
+}
+
 /**
  * Check if a tool result contains a swap transaction
  */
