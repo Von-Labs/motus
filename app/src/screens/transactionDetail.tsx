@@ -14,6 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { getWalletTransactionById, WalletTransaction } from "../utils/database";
 import { formatDate, getTypeIcon, getTypeLabel, formatAmountDisplay } from "../utils/transactionHelpers";
 import { getStyles } from "./transactionDetail.styles";
+import { DOMAIN } from "../../constants";
 
 export function TransactionDetail() {
   const { theme } = useContext(ThemeContext);
@@ -21,10 +22,40 @@ export function TransactionDetail() {
   const styles = getStyles(theme);
   const [transaction, setTransaction] = useState<WalletTransaction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resolvedTokenLabel, setResolvedTokenLabel] = useState<string | null>(null);
 
   useEffect(() => {
     loadTransaction();
   }, [selectedTransactionId]);
+
+  useEffect(() => {
+    if (!transaction) {
+      setResolvedTokenLabel(null);
+      return;
+    }
+    const details = JSON.parse(transaction.details);
+    const needResolve =
+      transaction.type === "send" &&
+      details?.type === "spl" &&
+      details?.mint &&
+      !details?.symbol &&
+      !details?.name;
+    if (!needResolve) {
+      setResolvedTokenLabel(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${DOMAIN}/api/sends/token?mint=${encodeURIComponent(details.mint)}`)
+      .then((r) => r.json())
+      .then((data: { symbol?: string; name?: string }) => {
+        if (cancelled) return;
+        setResolvedTokenLabel(data?.name || data?.symbol || null);
+      })
+      .catch(() => setResolvedTokenLabel(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [transaction?.id, transaction?.details]);
 
   async function loadTransaction() {
     if (!selectedTransactionId) {
@@ -85,6 +116,22 @@ export function TransactionDetail() {
   }
 
   const details = JSON.parse(transaction.details);
+  const isSendSplWithoutLabel =
+    transaction.type === "send" &&
+    details?.type === "spl" &&
+    details?.mint &&
+    !details?.symbol &&
+    !details?.name;
+  const amountDisplay =
+    isSendSplWithoutLabel && resolvedTokenLabel != null
+      ? (() => {
+          const raw = Number(details.amount);
+          const decimals = typeof details.decimals === "number" ? details.decimals : 6;
+          const human = raw / Math.pow(10, decimals);
+          const fixed = human >= 1 || human === 0 ? human.toFixed(2) : human.toFixed(4);
+          return `${fixed} ${resolvedTokenLabel}`;
+        })()
+      : formatAmountDisplay(details, transaction.type);
 
   return (
     <View style={styles.container}>
@@ -148,7 +195,7 @@ export function TransactionDetail() {
             {Object.entries(details).map(([key, value]) => {
               const displayValue =
                 key === "amount"
-                  ? formatAmountDisplay(details, transaction.type)
+                  ? amountDisplay
                   : typeof value === "string" && value.length > 40
                     ? `${value.slice(0, 20)}...${value.slice(-20)}`
                     : String(value);

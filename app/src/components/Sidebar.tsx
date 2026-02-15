@@ -143,7 +143,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               size={20}
               color={theme.textColor}
             />
-            <Text style={styles.menuText}>Gửi SOL</Text>
+            <Text style={styles.menuText}>Send token</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

@@ -143,6 +143,9 @@ export async function handleSendTransaction(
     type: 'sol' | 'spl';
     amount: string;
     mint?: string;
+    decimals?: number;
+    symbol?: string;
+    name?: string;
   },
   cluster: SolanaCluster = 'mainnet-beta'
 ): Promise<string> {
@@ -170,16 +173,15 @@ export async function handleSendTransaction(
   const signature = signatures[0];
 
   try {
-    await createWalletTransaction(
-      'send',
-      signature,
-      'success',
-      {
-        type: sendData.type,
-        amount: sendData.amount,
-        mint: sendData.mint,
-      }
-    );
+    const details: Record<string, unknown> = {
+      type: sendData.type,
+      amount: sendData.amount,
+      mint: sendData.mint,
+    };
+    if (sendData.decimals != null) details.decimals = sendData.decimals;
+    details.symbol = sendData.symbol || sendData.name || null;
+    details.name = sendData.name || null;
+    await createWalletTransaction('send', signature, 'success', details);
   } catch (error) {
     console.error('Failed to save send transaction to database:', error);
   }

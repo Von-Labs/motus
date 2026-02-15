@@ -9,8 +9,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  FlatList,
 } from "react-native";
-import { useContext, useState } from "react";
+import { useContext, useState, useCallback } from "react";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { DOMAIN } from "../../constants";
@@ -18,45 +20,114 @@ import { handleSendTransaction, type SolanaCluster } from "../utils/swapHandler"
 
 const LAMPORTS_PER_SOL = 1e9;
 
+export type TokenOption = {
+  address: string | null;
+  symbol: string;
+  name?: string;
+  decimals: number;
+};
+
+const SOL_OPTION: TokenOption = {
+  address: null,
+  symbol: "SOL",
+  name: "Solana",
+  decimals: 9,
+};
+
 export function SendToken() {
   const { theme } = useContext(ThemeContext);
   const { walletAddress, setCurrentScreen } = useContext(AppContext);
   const [recipient, setRecipient] = useState("");
-  const [amountSol, setAmountSol] = useState("");
+  const [amount, setAmount] = useState("");
+  const [selectedToken, setSelectedToken] = useState<TokenOption>(SOL_OPTION);
   const [cluster, setCluster] = useState<SolanaCluster>("mainnet-beta");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tokenModalVisible, setTokenModalVisible] = useState(false);
+  const [tokenSearchQuery, setTokenSearchQuery] = useState("");
+  const [tokenSearchResults, setTokenSearchResults] = useState<TokenOption[]>([]);
+  const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
+
+  const searchTokens = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setTokenSearchResults([]);
+      return;
+    }
+    setTokenSearchLoading(true);
+    try {
+      const res = await fetch(
+        `${DOMAIN}/api/sends/tokens?query=${encodeURIComponent(query.trim())}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Search failed");
+      const list = Array.isArray(data) ? data : [];
+      setTokenSearchResults(
+        list.map((t: any) => ({
+          address: t.address || t.id || t.mint,
+          symbol: t.symbol || "?",
+          name: t.name,
+          decimals: typeof t.decimals === "number" ? t.decimals : 6,
+        }))
+      );
+    } catch (e) {
+      setTokenSearchResults([]);
+    } finally {
+      setTokenSearchLoading(false);
+    }
+  }, []);
+
+  function openTokenModal() {
+    setTokenModalVisible(true);
+    setTokenSearchQuery("");
+    setTokenSearchResults([]);
+  }
+
+  function selectToken(token: TokenOption) {
+    setSelectedToken(token);
+    setTokenModalVisible(false);
+  }
 
   async function handleSend() {
     setError(null);
     const to = recipient.trim();
-    const sol = amountSol.trim();
+    const amt = amount.trim();
     if (!to) {
-      setError("Vui lòng nhập địa chỉ người nhận.");
+      setError("Please enter the recipient address.");
       return;
     }
-    if (!sol || isNaN(parseFloat(sol)) || parseFloat(sol) <= 0) {
-      setError("Vui lòng nhập số SOL hợp lệ (ví dụ: 0.01).");
+    const num = parseFloat(amt);
+    if (!amt || isNaN(num) || num <= 0) {
+      setError(`Please enter a valid ${selectedToken.symbol} amount.`);
       return;
     }
     if (!walletAddress) {
-      setError("Chưa kết nối ví.");
+      setError("Wallet not connected.");
       return;
     }
 
-    const amountLamports = String(Math.round(parseFloat(sol) * LAMPORTS_PER_SOL));
+    const decimals = selectedToken.decimals;
+    const amountRaw =
+      selectedToken.address === null
+        ? String(Math.round(num * LAMPORTS_PER_SOL))
+        : String(Math.round(num * Math.pow(10, decimals)));
 
     setLoading(true);
     try {
+      const body: Record<string, unknown> = {
+        sender: walletAddress,
+        recipient: to,
+        amount: amountRaw,
+        cluster,
+      };
+      if (selectedToken.address) {
+        body.mint = selectedToken.address;
+        body.decimals = decimals;
+      }
+
       const res = await fetch(`${DOMAIN}/api/sends/prepare`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sender: walletAddress,
-          recipient: to,
-          amount: amountLamports,
-          cluster,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -70,17 +141,20 @@ export function SendToken() {
           type: data.type || "sol",
           amount: data.amount,
           mint: data.mint,
+          decimals: selectedToken.address ? selectedToken.decimals : undefined,
+          symbol: selectedToken.symbol,
+          name: selectedToken.name,
         },
         cluster
       );
 
       Alert.alert(
-        "Đã gửi",
-        `Giao dịch thành công.\nSignature: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
+        "Sent",
+        `Transaction successful.\nSignature: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
         [{ text: "OK", onPress: () => setCurrentScreen("transactions") }]
       );
       setRecipient("");
-      setAmountSol("");
+      setAmount("");
     } catch (e: any) {
       const raw = e?.message || String(e);
       const isNetworkError =
@@ -89,10 +163,10 @@ export function SendToken() {
         raw?.includes("Network Error") ||
         e?.name === "TypeError";
       const msg = isNetworkError
-        ? "Không kết nối được server. Trên thiết bị/emulator: trong .env đặt EXPO_PUBLIC_DEV_API_URL=http://<IP-máy>:3050 (Android emulator: http://10.0.2.2:3050), rồi chạy lại app (npx expo start -c)."
+        ? "Could not reach the server. On device/emulator: set EXPO_PUBLIC_DEV_API_URL in .env to http://<your-IP>:3050 (Android emulator: http://10.0.2.2:3050), then restart the app (npx expo start -c)."
         : raw;
       setError(msg);
-      Alert.alert("Lỗi", msg);
+      Alert.alert("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -111,11 +185,84 @@ export function SendToken() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Gửi SOL</Text>
+          <Text style={styles.title}>Send token</Text>
           <Text style={styles.subtitle}>
-            Nhập địa chỉ ví người nhận và số SOL. Chọn network khớp với server.
+            Select token (SOL or any Jupiter token), recipient address and amount. Use the same network as your wallet.
           </Text>
         </View>
+
+        <Text style={styles.label}>Token</Text>
+        <TouchableOpacity
+          style={styles.tokenButton}
+          onPress={openTokenModal}
+          disabled={loading}
+        >
+          <Text style={styles.tokenButtonText}>
+            {selectedToken.symbol} {selectedToken.name ? `(${selectedToken.name})` : ""}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={theme.textColor} />
+        </TouchableOpacity>
+
+        <Modal
+          visible={tokenModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setTokenModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.backgroundColor }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.textColor }]}>Select token</Text>
+                <TouchableOpacity onPress={() => setTokenModalVisible(false)}>
+                  <Ionicons name="close" size={28} color={theme.textColor} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.tokenOption, { borderColor: theme.borderColor }]}
+                onPress={() => selectToken(SOL_OPTION)}
+              >
+                <Text style={[styles.tokenOptionSymbol, { color: theme.textColor }]}>SOL</Text>
+                <Text style={[styles.tokenOptionName, { color: theme.textColor, opacity: 0.7 }]}>Solana (native)</Text>
+              </TouchableOpacity>
+              <Text style={[styles.label, { marginTop: 12 }]}>Search by name or symbol</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 8 }]}
+                value={tokenSearchQuery}
+                onChangeText={(q) => {
+                  setTokenSearchQuery(q);
+                  if (q.trim().length >= 2) {
+                    searchTokens(q);
+                  } else {
+                    setTokenSearchResults([]);
+                  }
+                }}
+                placeholder="e.g. USDC, BONK..."
+                placeholderTextColor={theme.textColor + "80"}
+                autoCapitalize="characters"
+              />
+              {tokenSearchLoading ? (
+                <ActivityIndicator size="small" color={theme.tintColor} style={{ marginVertical: 16 }} />
+              ) : (
+                <FlatList
+                  data={tokenSearchResults}
+                  keyExtractor={(item) => item.address || "sol"}
+                  style={styles.tokenList}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.tokenOption, { borderColor: theme.borderColor }]}
+                      onPress={() => selectToken(item)}
+                    >
+                      <Text style={[styles.tokenOptionSymbol, { color: theme.textColor }]}>{item.symbol}</Text>
+                      <Text style={[styles.tokenOptionName, { color: theme.textColor, opacity: 0.7 }]} numberOfLines={1}>
+                        {item.name || item.address?.slice(0, 8) + "..."}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
 
         <Text style={styles.label}>Network</Text>
         <View style={styles.networkRow}>
@@ -139,24 +286,24 @@ export function SendToken() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.label}>Địa chỉ người nhận</Text>
+        <Text style={styles.label}>Recipient address</Text>
         <TextInput
           style={styles.input}
           value={recipient}
           onChangeText={setRecipient}
-          placeholder="Ví dụ: 7xKX...abc"
+          placeholder="e.g. 7xKX...abc"
           placeholderTextColor={theme.textColor + "80"}
           autoCapitalize="none"
           autoCorrect={false}
           editable={!loading}
         />
 
-        <Text style={styles.label}>Số SOL</Text>
+        <Text style={styles.label}>Amount ({selectedToken.symbol})</Text>
         <TextInput
           style={styles.input}
-          value={amountSol}
-          onChangeText={setAmountSol}
-          placeholder="Ví dụ: 0.01"
+          value={amount}
+          onChangeText={setAmount}
+          placeholder={selectedToken.address === null ? "e.g. 0.01" : "e.g. 10"}
           placeholderTextColor={theme.textColor + "80"}
           keyboardType="decimal-pad"
           editable={!loading}
@@ -179,15 +326,12 @@ export function SendToken() {
           ) : (
             <>
               <Ionicons name="send" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Gửi</Text>
+              <Text style={styles.buttonText}>Send</Text>
             </>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.hint}>
-          Server phải dùng cùng network: mainnet thì SOLANA_RPC_URL mặc định, devnet thì đặt
-          SOLANA_RPC_URL=https://api.devnet.solana.com trong server/.env. Giao dịch xuất hiện trong Transaction History.
-        </Text>
+        
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -247,6 +391,65 @@ const getStyles = (theme: any) =>
     networkBtnTextActive: {
       color: theme.tintColor,
       fontFamily: theme.semiBoldFont,
+    },
+    tokenButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderWidth: 1,
+      borderColor: theme.textColor + "40",
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 8,
+    },
+    tokenButtonText: {
+      fontSize: 16,
+      color: theme.textColor,
+      fontFamily: theme.regularFont,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "flex-end",
+    },
+    modalContent: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      padding: 20,
+      paddingBottom: 40,
+      maxHeight: "80%",
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontFamily: theme.semiBoldFont,
+    },
+    tokenOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 8,
+    },
+    tokenOptionSymbol: {
+      fontSize: 16,
+      fontFamily: theme.semiBoldFont,
+    },
+    tokenOptionName: {
+      fontSize: 14,
+      fontFamily: theme.lightFont,
+      flex: 1,
+      marginLeft: 12,
+    },
+    tokenList: {
+      maxHeight: 220,
     },
     label: {
       fontSize: 14,

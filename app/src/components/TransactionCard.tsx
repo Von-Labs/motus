@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useState, useEffect } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { WalletTransaction } from "../utils/database";
 import { formatAmountDisplay } from "../utils/transactionHelpers";
+import { DOMAIN } from "../../constants";
 
 interface TransactionCardProps {
   transaction: WalletTransaction;
@@ -22,6 +24,41 @@ export function TransactionCard({
 }: TransactionCardProps) {
   const styles = getStyles(theme);
   const details = JSON.parse(transaction.details);
+  const [resolvedTokenLabel, setResolvedTokenLabel] = useState<string | null>(null);
+
+  const isSendSplWithoutLabel =
+    transaction.type === "send" &&
+    details?.type === "spl" &&
+    details?.mint &&
+    !details?.symbol &&
+    !details?.name;
+
+  useEffect(() => {
+    if (!isSendSplWithoutLabel || !details.mint) return;
+    let cancelled = false;
+    fetch(`${DOMAIN}/api/sends/token?mint=${encodeURIComponent(details.mint)}`)
+      .then((r) => r.json())
+      .then((data: { symbol?: string; name?: string }) => {
+        if (cancelled) return;
+        const label = data?.name || data?.symbol || null;
+        if (label) setResolvedTokenLabel(label);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isSendSplWithoutLabel, details?.mint]);
+
+  const amountDisplay =
+    isSendSplWithoutLabel && resolvedTokenLabel != null
+      ? (() => {
+          const raw = Number(details.amount);
+          const decimals = typeof details.decimals === "number" ? details.decimals : 6;
+          const human = raw / Math.pow(10, decimals);
+          const fixed = human >= 1 || human === 0 ? human.toFixed(2) : human.toFixed(4);
+          return `${fixed} ${resolvedTokenLabel}`;
+        })()
+      : formatAmountDisplay(details, transaction.type);
 
   return (
     <TouchableOpacity
@@ -97,7 +134,7 @@ export function TransactionCard({
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount:</Text>
               <Text style={styles.detailValue}>
-                {formatAmountDisplay(details, transaction.type)}
+                {amountDisplay}
               </Text>
             </View>
           )}
