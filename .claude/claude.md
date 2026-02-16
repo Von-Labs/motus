@@ -45,6 +45,18 @@ git commit -m "chore: update dependencies"
 - Reference issue numbers when applicable
 - One logical change per commit
 
+# Package Manager
+
+CRITICAL: This project uses **pnpm** as the package manager.
+## Usage
+
+- **Install dependencies**: `pnpm install`
+- **Add package**: `pnpm add <package-name>`
+- **Remove package**: `pnpm remove <package-name>`
+- **Run scripts**: `pnpm <script-name>`
+
+**NEVER use npm or yarn** - always use pnpm for consistency.
+
 # Android Build Setup
 
 ## Required Configuration
