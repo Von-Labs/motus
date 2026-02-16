@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
 import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
 import { driftTools, handleToolCall as handleDriftToolCall } from '../drift'
+import { db } from '../db/supabase'
 
 type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
 type ModelName =
@@ -9,10 +10,28 @@ type ModelName =
   | 'claude-sonnet-4-5-20250929'
   | 'claude-haiku-4-5-20251001'
 
-const models: Record<ModelLabel, ModelName> = {
-  claudeOpus: 'claude-opus-4-5-20251101',
-  claudeSonnet: 'claude-sonnet-4-5-20250929',
-  claudeHaiku: 'claude-haiku-4-5-20251001'
+interface ModelConfig {
+  name: ModelName;
+  inputPricePer1M: number;  // USD per 1M tokens
+  outputPricePer1M: number; // USD per 1M tokens
+}
+
+const models: Record<ModelLabel, ModelConfig> = {
+  claudeOpus: {
+    name: 'claude-opus-4-5-20251101',
+    inputPricePer1M: 5.00,
+    outputPricePer1M: 25.00
+  },
+  claudeSonnet: {
+    name: 'claude-sonnet-4-5-20250929',
+    inputPricePer1M: 3.00,
+    outputPricePer1M: 15.00
+  },
+  claudeHaiku: {
+    name: 'claude-haiku-4-5-20251001',
+    inputPricePer1M: 1.00,
+    outputPricePer1M: 5.00
+  }
 }
 
 interface Message {
@@ -28,6 +47,10 @@ interface RequestBody {
 
 export const claudeWithTools = asyncHandler(
   async (req: Request, res: Response) => {
+    // Track total token usage across all API calls in the conversation loop
+    let totalInputTokens = 0
+    let totalOutputTokens = 0
+
     try {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -36,9 +59,10 @@ export const claudeWithTools = asyncHandler(
       })
 
       const { messages, model, systemPrompt }: RequestBody = req.body
-      const selectedModel = models[model]
+      const modelConfig = models[model]
+      const walletAddress = req.headers['x-wallet-address'] as string
 
-      if (!selectedModel) {
+      if (!modelConfig) {
         res.write('data: [DONE]\n\n')
         res.end()
         return
@@ -124,7 +148,7 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             'x-api-key': apiKey || ''
           },
           body: JSON.stringify({
-            model: selectedModel,
+            model: modelConfig.name,
             messages: conversationMessages,
             max_tokens: 4096,
             system: systemPrompt || defaultSystemPrompt,
@@ -137,6 +161,12 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
         }
 
         const result = await response.json()
+
+        // Track token usage from this API call
+        if (result.usage) {
+          totalInputTokens += result.usage.input_tokens || 0
+          totalOutputTokens += result.usage.output_tokens || 0
+        }
 
         // Stream assistant's text response
         if (result.content) {
@@ -206,6 +236,23 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
         } else {
           // No more tools to use, end loop
           continueLoop = false
+        }
+      }
+
+      // Track usage in database after conversation completes
+      if (walletAddress && totalInputTokens > 0 && totalOutputTokens > 0) {
+        try {
+          await db.processApiRequest({
+            walletAddress,
+            model: modelConfig.name,
+            requestType: 'chat_with_tools',
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            endpoint: req.path
+          })
+        } catch (trackingErr) {
+          console.error('Failed to track usage:', trackingErr)
+          // Don't fail the request if tracking fails
         }
       }
 

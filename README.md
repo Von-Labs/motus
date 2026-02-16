@@ -10,6 +10,12 @@ A full-stack React Native mobile application with AI-powered DeFi capabilities o
 - **Markdown Rendering**: Rich text formatting in chat
 - **Per-Model History**: Separate conversation history for each AI model
 
+### 💳 Usage & Billing
+- **Free Tier**: 10 free API requests per wallet
+- **Pay-as-you-go**: USDC payment for continued usage
+- **Usage Tracking**: Monitor token usage and costs
+- **Transparent Pricing**: Real-time cost calculation per request
+
 ### 💰 Jupiter DeFi Tools (Claude Only)
 - **Token Operations**:
   - `swap_tokens` - Execute token swaps via Jupiter aggregator
@@ -111,6 +117,22 @@ OPENAI_API_KEY="sk-..."
 GEMINI_API_KEY="..."
 GEMINI_CHAT_MODEL="gemini-2.5-flash"
 JUPITER_API_KEY="..."  # Get from https://portal.jup.ag
+
+# Supabase (for billing & usage tracking)
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_ANON_KEY="your-anon-key"
+```
+
+**Setup Supabase Database**:
+```bash
+# Install Supabase CLI
+brew install supabase/tap/supabase
+
+# Login to Supabase
+supabase login
+
+# Push database migrations
+supabase db push
 ```
 
 Start server:
@@ -219,6 +241,8 @@ export const themes = {
 | `GEMINI_API_KEY` | Yes (for Gemini) | Google Gemini API key |
 | `GEMINI_CHAT_MODEL` | No | Default: gemini-2.5-flash |
 | `JUPITER_API_KEY` | No | Jupiter API key (optional, increases rate limits) |
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | Supabase anon/public key |
 
 ### Mobile App
 | Variable | Required | Description |

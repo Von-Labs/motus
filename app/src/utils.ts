@@ -5,15 +5,18 @@ import { Model } from '../types'
 export function getEventSource({
   headers,
   body,
-  type
+  type,
+  walletAddress
 } : {
   headers?: any,
   body: any,
-  type: string
+  type: string,
+  walletAddress?: string | null
 }) {
   const es = new EventSource(`${DOMAIN}/chat/${type}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(walletAddress && { 'X-Wallet-Address': walletAddress }),
       ...headers
     },
     method: 'POST',
