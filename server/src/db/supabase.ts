@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -211,8 +211,8 @@ export interface Database {
   };
 }
 
-// Create Supabase client
-export const supabase: SupabaseClient<Database> = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client (untyped to avoid schema mismatch errors)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey) as any;
 
 // Helper functions for database operations
 export const db = {
@@ -327,10 +327,10 @@ export const db = {
 
     if (usageError) throw usageError;
 
-    const totalTokens = usageStats?.reduce((sum, u) => sum + u.total_tokens, 0) || 0;
-    const totalCost = usageStats?.reduce((sum, u) => sum + u.total_cost, 0) || 0;
-    const freeRequests = usageStats?.filter(u => u.is_free_request).length || 0;
-    const paidRequests = usageStats?.filter(u => !u.is_free_request).length || 0;
+    const totalTokens = usageStats?.reduce((sum: number, u: any) => sum + u.total_tokens, 0) || 0;
+    const totalCost = usageStats?.reduce((sum: number, u: any) => sum + u.total_cost, 0) || 0;
+    const freeRequests = usageStats?.filter((u: any) => u.is_free_request).length || 0;
+    const paidRequests = usageStats?.filter((u: any) => !u.is_free_request).length || 0;
 
     return {
       user,
@@ -373,5 +373,21 @@ export const db = {
 
     if (error) throw error;
     return data;
-  }
+  },
+
+  // Check if a deposit signature already exists (prevent double-spend)
+  async getDepositBySignature(signature: string) {
+    const { data, error } = await supabase
+      .from('usdc_transactions')
+      .select('id')
+      .eq('signature', signature)
+      .single();
+
+    if (error && error.code === 'PGRST116') return null; // not found
+    if (error) throw error;
+    return data;
+  },
+
+  // Expose supabase client for advanced queries
+  supabase,
 };

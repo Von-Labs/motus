@@ -24,8 +24,8 @@ export class DriftService {
     })
 
     this.driftClient = new DriftClient({
-      connection,
-      wallet: provider.wallet,
+      connection: connection as any,
+      wallet: provider.wallet as any,
       env,
     })
 
@@ -183,12 +183,12 @@ export class DriftService {
     const client = this.getDriftClient()
     const user = client.getUser()
 
-    const positions = user.getPerpPositions()
+    const positions = (user as any).getActivePerpPositions?.() ?? (user as any).perpPositions ?? []
 
     // Filter out empty positions
-    const activePositions = positions.filter((pos) => !pos.baseAssetAmount.isZero())
+    const activePositions = positions.filter((pos: any) => !pos.baseAssetAmount.isZero())
 
-    return activePositions.map((pos) => ({
+    return activePositions.map((pos: any) => ({
       marketIndex: pos.marketIndex,
       baseAssetAmount: pos.baseAssetAmount.toString(),
       quoteAssetAmount: pos.quoteAssetAmount.toString(),
@@ -269,13 +269,13 @@ export class DriftService {
     return filteredOrders.map((order) => ({
       orderId: order.orderId,
       marketIndex: order.marketIndex,
-      orderType: OrderType[order.orderType],
-      direction: PositionDirection[order.direction],
+      orderType: (OrderType as any)[(order.orderType as any)],
+      direction: (PositionDirection as any)[(order.direction as any)],
       baseAssetAmount: order.baseAssetAmount.toString(),
       price: order.price.toString(),
       triggerPrice: order.triggerPrice?.toString(),
       triggerCondition: order.triggerCondition
-        ? OrderTriggerCondition[order.triggerCondition]
+        ? (OrderTriggerCondition as any)[(order.triggerCondition as any)]
         : undefined,
       reduceOnly: order.reduceOnly,
       postOnly: order.postOnly,
