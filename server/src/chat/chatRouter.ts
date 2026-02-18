@@ -4,11 +4,15 @@ import { claudeWithTools } from './claudeWithTools'
 import { gpt } from './gpt'
 import { gemini } from './gemini'
 import { JupiterService } from '../jupiter/jupiterService'
+import { checkBalance } from '../middleware/trackUsage'
 
 const router = express.Router()
 
-router.post('/claude', claude)
-router.post('/claude-tools', claudeWithTools)
+// Claude endpoints with balance check
+router.post('/claude', checkBalance, claude)
+router.post('/claude-tools', checkBalance, claudeWithTools)
+
+// Other endpoints without balance check (for now)
 router.post('/gpt', gpt)
 router.post('/gemini', gemini)
 

@@ -5,3 +5,4 @@ export { Bluetooth } from "./bluetooth";
 export { TransactionHistory } from "./transactionHistory";
 export { TransactionDetail } from "./transactionDetail";
 export { SendToken } from "./SendToken";
+export { Usage } from "./usage";

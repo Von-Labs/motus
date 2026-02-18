@@ -1,6 +1,8 @@
 import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
-import { jupiterTools, handleToolCall } from '../jupiter'
+import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
+import { driftTools, handleToolCall as handleDriftToolCall } from '../drift'
+import { db } from '../db/supabase'
 
 type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
 type ModelName =
@@ -8,10 +10,28 @@ type ModelName =
   | 'claude-sonnet-4-5-20250929'
   | 'claude-haiku-4-5-20251001'
 
-const models: Record<ModelLabel, ModelName> = {
-  claudeOpus: 'claude-opus-4-5-20251101',
-  claudeSonnet: 'claude-sonnet-4-5-20250929',
-  claudeHaiku: 'claude-haiku-4-5-20251001'
+interface ModelConfig {
+  name: ModelName;
+  inputPricePer1M: number;  // USD per 1M tokens
+  outputPricePer1M: number; // USD per 1M tokens
+}
+
+const models: Record<ModelLabel, ModelConfig> = {
+  claudeOpus: {
+    name: 'claude-opus-4-5-20251101',
+    inputPricePer1M: 5.00,
+    outputPricePer1M: 25.00
+  },
+  claudeSonnet: {
+    name: 'claude-sonnet-4-5-20250929',
+    inputPricePer1M: 3.00,
+    outputPricePer1M: 15.00
+  },
+  claudeHaiku: {
+    name: 'claude-haiku-4-5-20251001',
+    inputPricePer1M: 1.00,
+    outputPricePer1M: 5.00
+  }
 }
 
 interface Message {
@@ -27,6 +47,10 @@ interface RequestBody {
 
 export const claudeWithTools = asyncHandler(
   async (req: Request, res: Response) => {
+    // Track total token usage across all API calls in the conversation loop
+    let totalInputTokens = 0
+    let totalOutputTokens = 0
+
     try {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -35,15 +59,18 @@ export const claudeWithTools = asyncHandler(
       })
 
       const { messages, model, systemPrompt }: RequestBody = req.body
-      const selectedModel = models[model]
+      const modelConfig = models[model]
+      const walletAddress = req.headers['x-wallet-address'] as string
 
-      if (!selectedModel) {
+      if (!modelConfig) {
         res.write('data: [DONE]\n\n')
         res.end()
         return
       }
 
-      const defaultSystemPrompt = `You are a helpful DeFi assistant on Solana blockchain. You have access to Jupiter aggregator tools to help users:
+      const defaultSystemPrompt = `You are a helpful DeFi assistant on Solana blockchain. You have access to Jupiter aggregator and Drift Protocol tools to help users:
+
+Jupiter Tools (Spot Trading):
 - Swap tokens instantly
 - Check token prices
 - View basic wallet balances
@@ -56,6 +83,17 @@ export const claudeWithTools = asyncHandler(
 - Create DCA (Dollar-Cost Averaging) strategies
 - Check token security
 
+Drift Protocol Tools (Perpetual Futures Trading):
+- Open LONG positions (bullish bets, profit when price rises)
+- Open SHORT positions (bearish bets, profit when price falls)
+- Place limit orders for perpetual futures
+- Set stop loss orders to limit downside risk
+- Set take profit orders to lock in gains
+- View current perpetual positions
+- Close positions completely
+- Cancel pending orders
+- Get market information (prices, funding rates)
+
 When users ask to perform DeFi operations, use the appropriate tools. Always explain what you're doing and confirm important actions.
 
 Portfolio Tools Guide:
@@ -64,13 +102,22 @@ Portfolio Tools Guide:
 - Use 'get_staked_jup' specifically for JUP staking information
 - Use 'get_supported_platforms' to see what DeFi platforms are tracked
 
-Limit Order Tools Guide:
+Limit Order Tools Guide (Jupiter):
 - Use 'create_trigger_order' when user wants to buy/sell at a specific price (e.g., "buy SOL at $60 USDC")
   * For "buy SOL at $60 USDC with 100 USDC": inputMint=USDC, outputMint=SOL, makingAmount=100 USDC (in smallest unit), takingAmount=(100/60) SOL (in smallest unit)
   * makingAmount is what they're spending, takingAmount is what they want to receive
 - Use 'get_trigger_orders_detailed' to check active or historical orders
 - Use 'cancel_trigger_order' to cancel a specific order
 - Use 'cancel_all_trigger_orders' to cancel all user's open orders
+
+Drift Perpetual Tools Guide:
+- Use 'place_long_order' for bullish bets (expect price to rise)
+- Use 'place_short_order' for bearish bets (expect price to fall)
+- Use 'set_stop_loss' to protect positions from excessive losses
+- Use 'set_take_profit' to automatically close at profit target
+- Use 'get_positions' to check current perpetual positions
+- Use 'close_position' to exit positions immediately
+- Market indexes: 0=SOL-PERP, 1=BTC-PERP, 2=ETH-PERP
 
 Common token addresses you should know:
 - SOL: So11111111111111111111111111111111111111112
@@ -101,11 +148,11 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             'x-api-key': apiKey || ''
           },
           body: JSON.stringify({
-            model: selectedModel,
+            model: modelConfig.name,
             messages: conversationMessages,
             max_tokens: 4096,
             system: systemPrompt || defaultSystemPrompt,
-            tools: jupiterTools
+            tools: [...jupiterTools, ...driftTools]
           })
         })
 
@@ -114,6 +161,12 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
         }
 
         const result = await response.json()
+
+        // Track token usage from this API call
+        if (result.usage) {
+          totalInputTokens += result.usage.input_tokens || 0
+          totalOutputTokens += result.usage.output_tokens || 0
+        }
 
         // Stream assistant's text response
         if (result.content) {
@@ -150,11 +203,11 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
               })}\n\n`
             )
 
-            // Execute the tool
-            const toolResult = await handleToolCall(
-              toolUse.name,
-              toolUse.input
-            )
+            // Execute the tool - route to correct handler based on tool name
+            const isDriftTool = driftTools.some(tool => tool.name === toolUse.name)
+            const toolResult = isDriftTool
+              ? await handleDriftToolCall(toolUse.name, toolUse.input)
+              : await handleJupiterToolCall(toolUse.name, toolUse.input)
 
             toolResults.push({
               type: 'tool_result',
@@ -183,6 +236,23 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
         } else {
           // No more tools to use, end loop
           continueLoop = false
+        }
+      }
+
+      // Track usage in database after conversation completes
+      if (walletAddress && totalInputTokens > 0 && totalOutputTokens > 0) {
+        try {
+          await db.processApiRequest({
+            walletAddress,
+            model: modelConfig.name,
+            requestType: 'chat_with_tools',
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            endpoint: req.path
+          })
+        } catch (trackingErr) {
+          console.error('Failed to track usage:', trackingErr)
+          // Don't fail the request if tracking fails
         }
       }
 

@@ -1,1 +1,4 @@
 **/.idea
+
+# Supabase
+server/supabase/.temp/

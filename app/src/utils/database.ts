@@ -144,7 +144,18 @@ export async function debugDatabase(): Promise<void> {
 // ===== Wallet Transactions =====
 
 export async function createWalletTransaction(
-  type: 'swap' | 'trigger_order' | 'cancel_order' | 'send',
+  type:
+    | 'swap'
+    | 'trigger_order'
+    | 'cancel_order'
+    | 'send'
+    | 'drift_market_order'
+    | 'drift_limit_order'
+    | 'drift_stop_loss'
+    | 'drift_take_profit'
+    | 'drift_close_position'
+    | 'drift_cancel_order'
+    | 'drift_other',
   signature: string,
   status: 'success' | 'failed',
   details: any

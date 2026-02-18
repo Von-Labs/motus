@@ -213,6 +213,7 @@ export function Chat() {
         model: chatType.label,
       },
       type: getChatType(chatType),
+      walletAddress,
     };
 
     const es = await getEventSource(eventSourceArgs);
@@ -292,6 +293,7 @@ export function Chat() {
         model: chatType.label,
       },
       type: getChatType(chatType),
+      walletAddress,
     };
 
     const es = await getEventSource(eventSourceArgs);
@@ -404,6 +406,7 @@ Always confirm the wallet address before performing any transactions.`;
         systemPrompt,
       },
       type: "claude-tools", // Use claude-tools endpoint
+      walletAddress,
     };
 
     const es = await getEventSource(eventSourceArgs);
