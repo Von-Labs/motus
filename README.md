@@ -88,6 +88,14 @@ A full-stack React Native mobile application with AI-powered DeFi capabilities o
     └── claude.md            # Git commit standards
 ```
 
+## Repo Flow
+
+All changes go through a PR first, then get promoted through branches:
+
+1. Open a PR targeting `staging`.
+2. Merge to `staging` for dev validation.
+3. Promote to `main` for production release.
+
 ## Setup
 
 ### Prerequisites
