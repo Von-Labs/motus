@@ -131,7 +131,8 @@ brew install supabase/tap/supabase
 # Login to Supabase
 supabase login
 
-# Push database migrations
+# Link your project and push migrations (migrations live in /supabase)
+supabase link --project-ref <PROJECT_REF>
 supabase db push
 ```
 
