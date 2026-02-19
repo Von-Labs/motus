@@ -94,7 +94,7 @@ const getStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: 'transparent',
     },
     scrollView: {
       flex: 1,
@@ -104,7 +104,7 @@ const getStyles = (theme: any) =>
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: 'transparent',
     },
     loadingText: {
       marginTop: 16,
@@ -117,7 +117,7 @@ const getStyles = (theme: any) =>
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: 'transparent',
       padding: 40,
     },
     emptyTitle: {

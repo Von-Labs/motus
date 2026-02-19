@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useContext } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { Main } from './src/main'
 import { useFonts } from 'expo-font'
@@ -7,7 +7,8 @@ import { ThemeContext, AppContext } from './src/context'
 import * as themes from './src/theme'
 import { IMAGE_MODELS, MODELS } from './constants'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { ChatModelModal } from './src/components/index'
+import { ChatModelModal, OnboardingScreen, AppBackground, Sidebar } from './src/components/index'
+import { Stack, Drawer } from './src/constants/navigation'
 import { Model } from './types'
 import { ActionSheetProvider } from '@expo/react-native-action-sheet'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -32,7 +33,7 @@ LogBox.ignoreLogs([
 ])
 
 export default function App() {
-  const [theme, setTheme] = useState<string>('defiAI')
+  const [theme, setTheme] = useState<string>('light')
   const [chatType, setChatType] = useState<Model>(MODELS.claudeOpus)
   const [imageModel, setImageModel] = useState<string>(IMAGE_MODELS.nanoBanana.label)
   const [modalVisible, setModalVisible] = useState<boolean>(false)
@@ -42,15 +43,23 @@ export default function App() {
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null)
   const [fontsLoaded] = useFonts({
-    'Geist-Regular': require('./assets/fonts/Geist-Regular.otf'),
-    'Geist-Light': require('./assets/fonts/Geist-Light.otf'),
-    'Geist-Bold': require('./assets/fonts/Geist-Bold.otf'),
-    'Geist-Medium': require('./assets/fonts/Geist-Medium.otf'),
-    'Geist-Black': require('./assets/fonts/Geist-Black.otf'),
-    'Geist-SemiBold': require('./assets/fonts/Geist-SemiBold.otf'),
-    'Geist-Thin': require('./assets/fonts/Geist-Thin.otf'),
-    'Geist-UltraLight': require('./assets/fonts/Geist-UltraLight.otf'),
-    'Geist-UltraBlack': require('./assets/fonts/Geist-UltraBlack.otf')
+    'Inter-Regular': require('./assets/fonts/Inter_18pt-Regular.ttf'),
+    'Inter-Medium': require('./assets/fonts/Inter_18pt-Medium.ttf'),
+    'Inter-SemiBold': require('./assets/fonts/Inter_18pt-SemiBold.ttf'),
+    'Inter-Bold': require('./assets/fonts/Inter_18pt-Bold.ttf'),
+    'Inter-Light': require('./assets/fonts/Inter_18pt-Light.ttf'),
+    'Inter-Thin': require('./assets/fonts/Inter_18pt-Thin.ttf'),
+    'Inter-Black': require('./assets/fonts/Inter_18pt-Black.ttf'),
+    'Inter-ExtraLight': require('./assets/fonts/Inter_18pt-ExtraLight.ttf'),
+    'Inter-ExtraBold': require('./assets/fonts/Inter_18pt-ExtraBold.ttf'),
+    'Lora-Regular': require('./assets/fonts/Lora-Regular.ttf'),
+    'Lora-Medium': require('./assets/fonts/Lora-Medium.ttf'),
+    'Lora-SemiBold': require('./assets/fonts/Lora-SemiBold.ttf'),
+    'Lora-Bold': require('./assets/fonts/Lora-Bold.ttf'),
+    'Lora-Italic': require('./assets/fonts/Lora-Italic.ttf'),
+    'Lora-MediumItalic': require('./assets/fonts/Lora-MediumItalic.ttf'),
+    'Lora-SemiBoldItalic': require('./assets/fonts/Lora-SemiBoldItalic.ttf'),
+    'Lora-BoldItalic': require('./assets/fonts/Lora-BoldItalic.ttf'),
   })
 
   useEffect(() => {
@@ -66,10 +75,9 @@ export default function App() {
       await initDatabase()
 
       console.log('🚀 Database initialized, setting up theme...');
-
-      // Force set defiAI theme (clear old theme cache)
-      await AsyncStorage.setItem('rnai-theme', 'defiAI')
-      setTheme('defiAI')
+      // Force set modern light theme as default
+      await AsyncStorage.setItem('rnai-theme', 'light')
+      setTheme('light')
 
       const _chatType = await AsyncStorage.getItem('rnai-chatType')
       if (_chatType) setChatType(JSON.parse(_chatType))
@@ -156,7 +164,7 @@ export default function App() {
             >
               <ActionSheetProvider>
                 <NavigationContainer>
-                  <Main />
+                  <RootNavigator />
                 </NavigationContainer>
               </ActionSheetProvider>
               <BottomSheetModalProvider>
@@ -191,21 +199,68 @@ export default function App() {
   )
 }
 
-const getBottomsheetStyles = theme => StyleSheet.create({
-  background: {
-    paddingHorizontal: 24,
-    backgroundColor: theme.backgroundColor
-  },
-  handle: {
-    marginHorizontal: 15,
-    backgroundColor: theme.backgroundColor,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  handleIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, .3)'
-  }
-})
+function RootNavigator() {
+  const { walletAddress } = useContext(AppContext)
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!walletAddress ? (
+        <Stack.Screen name="Onboarding" component={OnboardingWithBackground} />
+      ) : (
+        <Stack.Screen name="Main" component={AppDrawer} />
+      )}
+    </Stack.Navigator>
+  )
+}
+
+function AppDrawer() {
+  return (
+    <Drawer.Navigator
+      screenOptions={{
+        headerShown: false,
+        drawerType: 'slide',
+        overlayColor: 'transparent',
+      }}
+      drawerContent={(props) => <Sidebar {...props} />}
+    >
+      <Drawer.Screen name="Home" component={Main} />
+    </Drawer.Navigator>
+  )
+}
+
+function OnboardingWithBackground() {
+  return (
+    <AppBackground backgroundKey="warm">
+      <OnboardingScreen />
+    </AppBackground>
+  )
+}
+
+const getBottomsheetStyles = theme =>
+  StyleSheet.create({
+    background: {
+      paddingHorizontal: 24,
+      backgroundColor: theme.secondaryBackgroundColor,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderTopWidth: 1,
+      borderColor: theme.borderColor,
+    },
+    handle: {
+      marginHorizontal: 15,
+      backgroundColor: theme.secondaryBackgroundColor,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+    },
+    handleIndicator: {
+      alignSelf: 'center',
+      width: 40,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: theme.borderColor,
+      marginVertical: 8,
+    },
+  })
 
 function getTheme(theme: any) {
   let current

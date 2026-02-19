@@ -39,6 +39,7 @@ import {
   ThinkingDots,
   ToolingPanel,
   EmptyStateText,
+  ChatInput,
 } from "../components";
 
 type ChatState = {
@@ -818,28 +819,7 @@ Always confirm the wallet address before performing any transactions.`;
         )}
         {loading && <ThinkingDots theme={theme} />}
       </ScrollView>
-      <View style={styles.chatInputContainer}>
-        <TextInput
-          style={styles.input}
-          onChangeText={(v) => setInput(v)}
-          placeholder="Chat with Claude"
-          placeholderTextColor={theme.placeholderTextColor}
-          value={input}
-        />
-        <TouchableHighlight
-          underlayColor={"transparent"}
-          activeOpacity={0.65}
-          onPress={chat}
-        >
-          <View style={styles.chatButton}>
-            <Ionicons
-              name="arrow-up-outline"
-              size={20}
-              color={theme.tintTextColor}
-            />
-          </View>
-        </TouchableHighlight>
-      </View>
+      <ChatInput theme={theme} value={input} onChangeText={setInput} onSend={chat} />
     </KeyboardAvoidingView>
   );
 }
@@ -943,34 +923,8 @@ const getStyles = (theme: any) =>
       paddingHorizontal: 9,
       fontSize: 16,
     },
-    chatButton: {
-      marginRight: 14,
-      padding: 5,
-      borderRadius: 99,
-      backgroundColor: theme.tintColor,
-    },
-    chatInputContainer: {
-      paddingTop: 5,
-      borderColor: theme.borderColor,
-      width: "100%",
-      flexDirection: "row",
-      alignItems: "center",
-      paddingBottom: 5,
-    },
-    input: {
-      flex: 1,
-      borderWidth: 1,
-      borderRadius: 99,
-      color: theme.textColor,
-      marginHorizontal: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 21,
-      paddingRight: 39,
-      borderColor: theme.borderColor,
-      fontFamily: theme.semiBoldFont,
-    },
     container: {
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: 'transparent',
       flex: 1,
     },
     markdownStyle: {
@@ -1047,7 +1001,7 @@ const getStyles = (theme: any) =>
         fontFamily: theme.lightFont,
       },
       hr: {
-        backgroundColor: "rgba(255, 255, 255, .1)",
+        backgroundColor: theme.borderColor,
         height: 1,
       },
       fence: {
@@ -1055,27 +1009,28 @@ const getStyles = (theme: any) =>
         padding: 10,
         color: theme.secondaryTextColor,
         backgroundColor: theme.secondaryBackgroundColor,
-        borderColor: "rgba(255, 255, 255, .1)",
+        borderColor: theme.borderColor,
         fontFamily: theme.regularFont,
       },
       tr: {
         borderBottomWidth: 1,
-        borderColor: "rgba(255, 255, 255, .2)",
+        borderColor: theme.borderColor,
         flexDirection: "row",
       },
       table: {
         marginTop: 7,
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, .2)",
-        borderRadius: 3,
+        borderColor: theme.borderColor,
+        borderRadius: 6,
       },
       blockquote: {
-        backgroundColor: "#312e2e",
-        borderColor: "#CCC",
+        backgroundColor: theme.secondaryBackgroundColor,
+        borderColor: theme.borderColor,
         borderLeftWidth: 4,
         marginLeft: 5,
-        paddingHorizontal: 5,
-        marginVertical: 5,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        marginVertical: 8,
       },
     } as any,
   });

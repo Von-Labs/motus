@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, Animated } from "react-native";
-import { useContext, useRef, useEffect, useState } from "react";
+import { View, Text, TouchableOpacity } from "react-native";
+import { useContext, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMobileWallet } from "@wallet-ui/react-native-web3js";
@@ -7,33 +7,19 @@ import { getRecentConversations, Conversation } from "../utils/database";
 import { getStyles } from "./Sidebar.styles";
 import { WalletCard } from "./WalletCard";
 import { ConversationList } from "./ConversationList";
+import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 
-interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export function Sidebar(props: DrawerContentComponentProps) {
   const { theme } = useContext(ThemeContext);
   const { walletAddress, setWalletAddress, setCurrentScreen, setCurrentConversationId } =
     useContext(AppContext);
   const { disconnect } = useMobileWallet();
-  const slideAnim = useRef(new Animated.Value(-300)).current;
   const styles = getStyles(theme);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
 
   useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: isOpen ? 0 : -300,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-
-    // Load recent conversations when sidebar opens
-    if (isOpen) {
-      loadRecentConversations();
-    }
-  }, [isOpen]);
+    loadRecentConversations();
+  }, []);
 
   async function loadRecentConversations() {
     try {
@@ -47,54 +33,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   function handleNewChat() {
     setCurrentConversationId(null);
     setCurrentScreen('chat');
-    onClose();
+    props.navigation.closeDrawer();
   }
 
   function handleConversationSelect(conversation: Conversation) {
     setCurrentConversationId(conversation.id);
     setCurrentScreen('chat');
-    onClose();
+    props.navigation.closeDrawer();
   }
 
   function handleAllChats() {
     setCurrentScreen('allChats');
-    onClose();
+    props.navigation.closeDrawer();
   }
 
   const handleDisconnect = async () => {
     try {
       await disconnect();
       setWalletAddress(null); // Clear wallet address to return to Welcome screen
-      onClose();
+      props.navigation.closeDrawer();
     } catch (error) {
       console.error("Failed to disconnect:", error);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      {/* Overlay */}
-      <TouchableOpacity
-        style={styles.overlay}
-        activeOpacity={1}
-        onPress={onClose}
-      />
-
-      {/* Sidebar */}
-      <Animated.View
-        style={[
-          styles.sidebar,
-          {
-            transform: [{ translateX: slideAnim }],
-          },
-        ]}
-      >
+    <View style={styles.sidebar}>
         {/* Header with close button */}
         <View style={styles.header}>
           <Text style={styles.title}>Menu</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity onPress={props.navigation.closeDrawer} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={theme.textColor} />
           </TouchableOpacity>
         </View>
@@ -135,7 +103,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             style={styles.menuItem}
             onPress={() => {
               setCurrentScreen("usage");
-              onClose();
+              props.navigation.closeDrawer();
             }}
           >
             <Ionicons
@@ -150,7 +118,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             style={styles.menuItem}
             onPress={() => {
               setCurrentScreen("transactions");
-              onClose();
+              props.navigation.closeDrawer();
             }}
           >
             <Ionicons
@@ -165,7 +133,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             style={styles.menuItem}
             onPress={() => {
               setCurrentScreen("settings");
-              onClose();
+              props.navigation.closeDrawer();
             }}
           >
             <Ionicons
@@ -180,7 +148,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             style={styles.menuItem}
             onPress={() => {
               setCurrentScreen("bluetooth");
-              onClose();
+              props.navigation.closeDrawer();
             }}
           >
             <Ionicons
@@ -204,7 +172,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </TouchableOpacity>
           </View>
         )}
-      </Animated.View>
-    </>
+    </View>
   );
 }

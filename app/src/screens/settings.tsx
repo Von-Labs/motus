@@ -101,7 +101,7 @@ const getStyles = (theme:any) => StyleSheet.create({
   container: {
     padding: 14,
     flex: 1,
-    backgroundColor: theme.backgroundColor,
+    backgroundColor: 'transparent',
     paddingTop: 10,
   },
   contentContainer: {
