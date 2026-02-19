@@ -3,7 +3,7 @@ name: Mirroring Staging
 on:
   push:
     branches:
-      - staging
+      - main
 
 jobs:
   to_github:
@@ -12,6 +12,6 @@ jobs:
       - uses: actions/checkout@v1
       - uses: pixta-dev/repository-mirroring-action@v1
         with:
-          target_repo_url: git@github.com:itsmegatunger/motus.git
+          target_repo_url: git@github.com:itsmegatunger/motus-prod.git
           ssh_private_key: # <-- use 'secrets' to pass credential information.
             ${{ secrets.GIT_SSH_PRIVATE_KEY }}
