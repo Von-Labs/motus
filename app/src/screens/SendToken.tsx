@@ -34,6 +34,34 @@ const SOL_OPTION: TokenOption = {
   decimals: 9,
 };
 
+// Fallback list for common tokens in the app, used when server/Jupiter returns empty
+const COMMON_TOKENS: TokenOption[] = [
+  {
+    address: "So11111111111111111111111111111111111111112",
+    symbol: "SOL",
+    name: "Solana",
+    decimals: 9,
+  },
+  {
+    address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC mainnet
+    symbol: "USDC",
+    name: "USD Coin",
+    decimals: 6,
+  },
+  {
+    address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT mainnet
+    symbol: "USDT",
+    name: "Tether USD",
+    decimals: 6,
+  },
+  {
+    address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK mainnet
+    symbol: "BONK",
+    name: "Bonk",
+    decimals: 5,
+  },
+];
+
 export function SendToken() {
   const { theme } = useContext(ThemeContext);
   const { walletAddress, setCurrentScreen } = useContext(AppContext);
@@ -49,28 +77,44 @@ export function SendToken() {
   const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
 
   const searchTokens = useCallback(async (query: string) => {
-    if (!query.trim()) {
+    const trimmed = query.trim();
+    if (!trimmed) {
       setTokenSearchResults([]);
       return;
     }
     setTokenSearchLoading(true);
     try {
       const res = await fetch(
-        `${DOMAIN}/api/sends/tokens?query=${encodeURIComponent(query.trim())}`
+        `${DOMAIN}/api/sends/tokens?query=${encodeURIComponent(trimmed)}`
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Search failed");
-      const list = Array.isArray(data) ? data : [];
-      setTokenSearchResults(
-        list.map((t: any) => ({
+      const list = (Array.isArray(data) ? data : []).map((t: any) => ({
           address: t.address || t.id || t.mint,
           symbol: t.symbol || "?",
           name: t.name,
           decimals: typeof t.decimals === "number" ? t.decimals : 6,
-        }))
-      );
+        }));
+
+      if (list.length > 0) {
+        setTokenSearchResults(list);
+      } else {
+        const lc = trimmed.toLowerCase();
+        const fallback = COMMON_TOKENS.filter(
+          (t) =>
+            t.symbol.toLowerCase().includes(lc) ||
+            (t.name && t.name.toLowerCase().includes(lc))
+        );
+        setTokenSearchResults(fallback);
+      }
     } catch (e) {
-      setTokenSearchResults([]);
+      const trimmedQuery = query.trim().toLowerCase();
+      const fallback = COMMON_TOKENS.filter(
+        (t) =>
+          t.symbol.toLowerCase().includes(trimmedQuery) ||
+          (t.name && t.name.toLowerCase().includes(trimmedQuery))
+      );
+      setTokenSearchResults(fallback);
     } finally {
       setTokenSearchLoading(false);
     }
@@ -242,7 +286,7 @@ export function SendToken() {
               />
               {tokenSearchLoading ? (
                 <ActivityIndicator size="small" color={theme.tintColor} style={{ marginVertical: 16 }} />
-              ) : (
+              ) : tokenSearchResults.length > 0 ? (
                 <FlatList
                   data={tokenSearchResults}
                   keyExtractor={(item) => item.address || "sol"}
@@ -259,7 +303,11 @@ export function SendToken() {
                     </TouchableOpacity>
                   )}
                 />
-              )}
+              ) : tokenSearchQuery.trim().length >= 2 ? (
+                <Text style={[styles.noResultsText, { color: theme.textColor }]}>
+                  No tokens found for "{tokenSearchQuery.trim()}"
+                </Text>
+              ) : null}
             </View>
           </View>
         </Modal>
@@ -450,6 +498,12 @@ const getStyles = (theme: any) =>
     },
     tokenList: {
       maxHeight: 220,
+    },
+    noResultsText: {
+      fontSize: 14,
+      fontFamily: theme.lightFont,
+      opacity: 0.7,
+      marginTop: 12,
     },
     label: {
       fontSize: 14,
