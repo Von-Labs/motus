@@ -74,7 +74,7 @@ const getStyles = (theme: any) =>
     container: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: theme.secondaryBackgroundColor,
+      backgroundColor: "transparent",
       borderRadius: 28,
       paddingHorizontal: 16,
       paddingVertical: 10,

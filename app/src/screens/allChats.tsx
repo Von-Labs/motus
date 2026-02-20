@@ -1,24 +1,26 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-} from "react-native";
-import { useContext, useEffect, useState } from "react";
-import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
+import { useContext, useEffect, useState } from "react";
 import {
-  getAllConversations,
-  deleteConversation,
-  debugDatabase,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { AppContext, ThemeContext } from "../context";
+import {
   Conversation,
+  deleteConversation,
+  getAllConversations,
 } from "../utils/database";
 
 export function AllChats() {
   const { theme } = useContext(ThemeContext);
-  const { setCurrentConversationId, setCurrentScreen, currentConversationId } = useContext(AppContext);
+  const { setCurrentConversationId, currentConversationId } =
+    useContext(AppContext);
+  const navigation = useNavigation();
   const styles = getStyles(theme);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export function AllChats() {
 
   function handleConversationPress(conversation: Conversation) {
     setCurrentConversationId(conversation.id);
-    setCurrentScreen("chat");
+    (navigation as any).navigate("Home");
   }
 
   function handleDeleteConversation(conversation: Conversation) {
@@ -72,7 +74,7 @@ export function AllChats() {
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -133,18 +135,6 @@ export function AllChats() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => setCurrentScreen("chat")}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.textColor} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>All Chats</Text>
-        <View style={styles.placeholder} />
-      </View>
-
       {/* Conversations List */}
       {loading ? (
         <View style={styles.emptyContainer}>
@@ -159,9 +149,7 @@ export function AllChats() {
             style={{ opacity: 0.3 }}
           />
           <Text style={styles.emptyText}>No conversations yet</Text>
-          <Text style={styles.emptySubtext}>
-            Start a new chat to begin
-          </Text>
+          <Text style={styles.emptySubtext}>Start a new chat to begin</Text>
         </View>
       ) : (
         <FlatList
@@ -179,7 +167,7 @@ const getStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: "transparent",
     },
     header: {
       flexDirection: "row",
@@ -206,7 +194,8 @@ const getStyles = (theme: any) =>
       padding: 16,
     },
     conversationCard: {
-      backgroundColor: theme.secondaryBackgroundColor || "rgba(255, 255, 255, 0.05)",
+      backgroundColor:
+        theme.secondaryBackgroundColor || "rgba(255, 255, 255, 0.05)",
       borderRadius: 12,
       padding: 16,
       marginBottom: 12,

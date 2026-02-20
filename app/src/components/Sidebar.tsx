@@ -11,7 +11,7 @@ import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 
 export function Sidebar(props: DrawerContentComponentProps) {
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, setWalletAddress, setCurrentScreen, setCurrentConversationId } =
+  const { walletAddress, setWalletAddress, setCurrentConversationId } =
     useContext(AppContext);
   const { disconnect } = useMobileWallet();
   const styles = getStyles(theme);
@@ -32,18 +32,18 @@ export function Sidebar(props: DrawerContentComponentProps) {
 
   function handleNewChat() {
     setCurrentConversationId(null);
-    setCurrentScreen('chat');
+    props.navigation.navigate("Home");
     props.navigation.closeDrawer();
   }
 
   function handleConversationSelect(conversation: Conversation) {
     setCurrentConversationId(conversation.id);
-    setCurrentScreen('chat');
+    props.navigation.navigate("Home");
     props.navigation.closeDrawer();
   }
 
   function handleAllChats() {
-    setCurrentScreen('allChats');
+    props.navigation.navigate("AllChats");
     props.navigation.closeDrawer();
   }
 
@@ -102,7 +102,7 @@ export function Sidebar(props: DrawerContentComponentProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
-              setCurrentScreen("usage");
+              props.navigation.navigate("Usage");
               props.navigation.closeDrawer();
             }}
           >
@@ -117,7 +117,7 @@ export function Sidebar(props: DrawerContentComponentProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
-              setCurrentScreen("transactions");
+              props.navigation.navigate("Transactions");
               props.navigation.closeDrawer();
             }}
           >
@@ -132,8 +132,8 @@ export function Sidebar(props: DrawerContentComponentProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
-              setCurrentScreen("settings");
               props.navigation.closeDrawer();
+              (props.navigation.getParent() as any)?.navigate("Settings");
             }}
           >
             <Ionicons
@@ -147,7 +147,7 @@ export function Sidebar(props: DrawerContentComponentProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
-              setCurrentScreen("bluetooth");
+              props.navigation.navigate("Bluetooth");
               props.navigation.closeDrawer();
             }}
           >

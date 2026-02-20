@@ -6,7 +6,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useContext, useState, useEffect } from "react";
-import { ThemeContext, AppContext } from "../context";
+import { useNavigation } from "@react-navigation/native";
+import { ThemeContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getAllWalletTransactions, WalletTransaction } from "../utils/database";
 import { TransactionCard } from "../components/TransactionCard";
@@ -14,7 +15,7 @@ import { formatDate, getTypeIcon, getTypeLabel } from "../utils/transactionHelpe
 
 export function TransactionHistory() {
   const { theme } = useContext(ThemeContext);
-  const { setCurrentScreen, setSelectedTransactionId } = useContext(AppContext);
+  const navigation = useNavigation();
   const styles = getStyles(theme);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +37,7 @@ export function TransactionHistory() {
   }
 
   function openTransactionDetail(tx: WalletTransaction) {
-    setSelectedTransactionId(tx.id);
-    setCurrentScreen("transactionDetail");
+    (navigation as any).navigate("TransactionDetail", { transactionId: tx.id });
   }
 
   if (loading) {
