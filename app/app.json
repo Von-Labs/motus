@@ -7,30 +7,25 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-defi-ai.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0a0a1a"
+      "image": "./assets/gradient-background.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.app"
+      "bundleIdentifier": "com.vonlabs.motus"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.app"
+      "package": "com.vonlabs.motus"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-font",
-      "expo-sqlite"
-    ]
+    "plugins": ["expo-font", "expo-sqlite"]
   }
 }

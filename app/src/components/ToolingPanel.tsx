@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { ToolingStep } from './ToolingStep';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ToolingStep } from "./ToolingStep";
 
 interface ToolingPanelProps {
   steps: Array<{ icon: string; text: string }>;
@@ -27,10 +27,12 @@ export function ToolingPanel({ steps, theme }: ToolingPanelProps) {
             color={theme.mutedForegroundColor}
             style={styles.closeIcon}
           />
-          <Text style={[styles.title, { color: theme.textColor }]}>Summary</Text>
+          <Text style={[styles.title, { color: theme.textColor }]}>
+            Summary
+          </Text>
         </View>
         <Ionicons
-          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+          name={isExpanded ? "chevron-up" : "chevron-down"}
           size={20}
           color={theme.mutedForegroundColor}
         />
@@ -54,32 +56,31 @@ export function ToolingPanel({ steps, theme }: ToolingPanelProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginLeft: 10,
-    marginRight: 25,
+    marginLeft: 16,
+    marginRight: 16,
     marginTop: 10,
     marginBottom: 10,
     borderRadius: 12,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   closeIcon: {
     marginRight: 8,
   },
   title: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   content: {
     padding: 8,

@@ -1,51 +1,48 @@
-import { useContext } from "react";
+import { useContext, type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
-import { Bluetooth, Chat, Settings, TransactionHistory, TransactionDetail, Usage } from "./screens";
-import { AllChats } from "./screens/allChats";
-import { Header, Sidebar, OnboardingScreen } from "./components";
+import { Chat } from "./screens";
+import { Header, AppBackground } from "./components";
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { ThemeContext, AppContext } from "./context";
+import { ThemeContext } from "./context";
+import type { BackgroundKey } from "./constants/background";
+
+/** Shared layout for drawer screens that use router navigation (Settings, Usage). */
+export function DrawerScreenLayout({
+  backgroundKey,
+  children,
+}: {
+  backgroundKey: BackgroundKey;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  const { theme } = useContext(ThemeContext);
+  const styles = getStyles({ theme, insets });
+
+  return (
+    <AppBackground backgroundKey={backgroundKey}>
+      <View style={styles.container}>
+        <Header />
+        {children}
+      </View>
+    </AppBackground>
+  );
+}
 
 function MainComponent() {
   const insets = useSafeAreaInsets();
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, sidebarOpen, setSidebarOpen, currentScreen } =
-    useContext(AppContext);
   const styles = getStyles({ theme, insets });
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  // Show Onboarding when wallet not connected
-  if (!walletAddress) {
-    return (
-      <View style={styles.container}>
-        <OnboardingScreen />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* Header */}
-      <Header onMenuPress={toggleSidebar} />
-
-      {/* Current Screen */}
-      {currentScreen === "chat" && <Chat />}
-      {currentScreen === "settings" && <Settings />}
-      {currentScreen === "bluetooth" && <Bluetooth />}
-      {currentScreen === "allChats" && <AllChats />}
-      {currentScreen === "transactions" && <TransactionHistory />}
-      {currentScreen === "transactionDetail" && <TransactionDetail />}
-      {currentScreen === "usage" && <Usage />}
-    </View>
+    <AppBackground backgroundKey="default">
+      <View style={styles.container}>
+        <Header />
+        <Chat />
+      </View>
+    </AppBackground>
   );
 }
 
@@ -60,7 +57,7 @@ export function Main() {
 const getStyles = ({ theme, insets }: { theme: any; insets: any }) =>
   StyleSheet.create({
     container: {
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: 'transparent',
       flex: 1,
       paddingTop: insets.top,
       paddingBottom: insets.bottom,

@@ -1,49 +1,49 @@
-import { useContext, useRef, useState, useEffect } from 'react';
-import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { useMobileWallet } from "@wallet-ui/react-native-web3js";
+import { useNavigation } from "@react-navigation/native";
+import { useContext, useEffect, useRef, useState } from "react";
+import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import {
+  Animated,
+  Dimensions,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
-  Dimensions,
   TouchableOpacity,
-  ScrollView,
-  Animated,
-} from 'react-native';
-import { ThemeContext, AppContext } from '../../context';
-import { useMobileWallet } from "@wallet-ui/react-native-web3js";
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppContext, ThemeContext } from "../../context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const PAGES = [
   {
-    key: 'welcome',
-    title: 'Welcome to Solana Mobile AI Agent',
-    subtitle: 'Welcome',
-    body: '',
-    icon: '👋',
+    key: "welcome",
+    title: "Welcome to Motus",
+    subtitle: "Your Solana Mobile AI Agent",
+    body: "",
+    icon: "👋",
   },
   {
-    key: 'help',
-    title: 'Your AI DeFi Assistant',
-    subtitle: 'How we help you',
-    body: 'Our AI agent helps you navigate DeFi with confidence. Get swap suggestions, portfolio insights, and plain-English explanations—all in one place.',
-    icon: '🤖',
+    key: "help",
+    title: "Your AI DeFi Assistant",
+    subtitle: "How we help you",
+    body: "Our AI agent helps you navigate DeFi with confidence. Get swap suggestions, portfolio insights, and plain-English explanations—all in one place.",
+    icon: "🤖",
   },
   {
-    key: 'connect',
-    title: 'Connect with Solana Mobile',
-    subtitle: 'Secure & native',
-    body: 'You need to connect with Solana Mobile to use this app. Link your wallet once and the AI can help you execute swaps and manage your assets safely.',
-    icon: '📱',
+    key: "connect",
+    title: "Connect with Solana Mobile",
+    subtitle: "Secure & native",
+    body: "You need to connect with Solana Mobile to use this app. Link your wallet once and the AI can help you execute swaps and manage your assets safely.",
+    icon: "📱",
   },
   {
-    key: 'transparent',
-    title: 'Transparent & You Approve',
-    subtitle: 'You’re in control',
-    body: 'Every transaction is transparent and needs your approval. We never sign or send anything without showing you exactly what will happen first.',
-    icon: '✓',
+    key: "transparent",
+    title: "Transparent & You Approve",
+    subtitle: "You’re in control",
+    body: "Every transaction is transparent and needs your approval. We never sign or send anything without showing you exactly what will happen first.",
+    icon: "✓",
   },
 ];
 
@@ -100,12 +100,13 @@ export function OnboardingScreen() {
   const { theme } = useContext(ThemeContext);
   const { setWalletAddress } = useContext(AppContext);
   const { account, connect } = useMobileWallet();
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const buttonScale = useRef(new Animated.Value(1)).current;
   const dotWidths = useRef(
-    PAGES.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))
+    PAGES.map((_, i) => new Animated.Value(i === 0 ? 1 : 0)),
   ).current;
   const styles = getStyles(theme, insets);
 
@@ -137,8 +138,10 @@ export function OnboardingScreen() {
   const handleConnectWallet = async () => {
     try {
       await connect();
+      // Navigate explicitly to Main after successful connection
+      navigation.navigate("Main");
     } catch (error) {
-      console.error('Failed to connect wallet:', error);
+      console.error("Failed to connect wallet:", error);
     }
   };
 
@@ -177,10 +180,7 @@ export function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#0f0f23', '#1a1a2e', '#0f0f23']}
-        style={styles.gradient}
-      >
+      <View style={styles.gradient}>
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -206,11 +206,11 @@ export function OnboardingScreen() {
           {PAGES.map((p, i) => {
             const width = dotWidths[i].interpolate({
               inputRange: [0, 1],
-              outputRange: [8, 24],
+              outputRange: [8, 22],
             });
             const backgroundColor = dotWidths[i].interpolate({
               inputRange: [0, 1],
-              outputRange: ['rgba(255, 255, 255, 0.25)', '#00e5e5'],
+              outputRange: ["rgba(15, 23, 42, 0.20)", "#020617"],
             });
             return (
               <Animated.View
@@ -234,57 +234,52 @@ export function OnboardingScreen() {
           onPressOut={handlePressOut}
           activeOpacity={1}
         >
-          <Animated.View style={[{ transform: [{ scale: buttonScale }] }, styles.button]}>
+          <Animated.View
+            style={[{ transform: [{ scale: buttonScale }] }, styles.button]}
+          >
             <Text style={styles.buttonText}>
-              {isLast ? 'Connect wallet' : 'Next'}
+              {isLast ? "Connect wallet" : "Next"}
             </Text>
           </Animated.View>
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
     </View>
   );
 }
 
-type ThemeFonts = {
-  mediumFont: string;
-  boldFont: string;
-  regularFont: string;
-  semiBoldFont: string;
-};
-
-const getStyles = (theme: ThemeFonts, insets: { top: number; bottom: number }) =>
+const getStyles = (theme: any, insets: { top: number; bottom: number }) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#0f0f23',
+      backgroundColor: "transparent",
     },
     gradient: {
       flex: 1,
       paddingTop: insets.top,
       paddingBottom: insets.bottom + 24,
-      alignItems: 'center',
-      justifyContent: 'flex-end',
+      alignItems: "center",
+      justifyContent: "flex-end",
     },
     page: {
       width: SCREEN_WIDTH,
       paddingHorizontal: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       paddingBottom: 120,
     },
     pageContent: {
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     iconCircle: {
       width: 88,
       height: 88,
       borderRadius: 44,
-      backgroundColor: 'rgba(0, 229, 229, 0.15)',
-      borderWidth: 2,
-      borderColor: 'rgba(0, 229, 229, 0.4)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: "rgba(99, 102, 241, 0.08)",
+      borderWidth: 1,
+      borderColor: "rgba(99, 102, 241, 0.24)",
+      alignItems: "center",
+      justifyContent: "center",
       marginBottom: 24,
     },
     icon: {
@@ -293,31 +288,32 @@ const getStyles = (theme: ThemeFonts, insets: { top: number; bottom: number }) =
     subtitle: {
       fontSize: 14,
       fontFamily: theme.mediumFont,
-      color: '#00e5e5',
+      color: theme.mutedForegroundColor,
       letterSpacing: 1.5,
       marginBottom: 8,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     title: {
-      fontSize: 26,
-      fontFamily: theme.boldFont,
-      color: '#ffffff',
-      textAlign: 'center',
-      marginBottom: 16,
+      fontSize: 42,
+      fontFamily: theme.displayBold || "Lora-Bold",
+      color: theme.textColor,
+      textAlign: "center",
+      marginBottom: 18,
       paddingHorizontal: 8,
+      letterSpacing: 0.3,
     },
     body: {
       fontSize: 16,
       fontFamily: theme.regularFont,
-      color: 'rgba(255, 255, 255, 0.75)',
-      textAlign: 'center',
+      color: theme.mutedForegroundColor,
+      textAlign: "center",
       lineHeight: 24,
       paddingHorizontal: 8,
     },
     dots: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       gap: 8,
       marginBottom: 32,
     },
@@ -329,24 +325,24 @@ const getStyles = (theme: ThemeFonts, insets: { top: number; bottom: number }) =
       width: SCREEN_WIDTH * 0.8,
       maxWidth: 320,
       borderRadius: 16,
-      overflow: 'hidden',
+      overflow: "hidden",
       elevation: 8,
-      shadowColor: '#00e5e5',
+      shadowColor: "#6366F1",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
     },
     button: {
       paddingVertical: 18,
-      paddingHorizontal: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#EBF4F5',
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.tintColor,
     },
     buttonText: {
       fontSize: 18,
       fontFamily: theme.semiBoldFont,
-      color: '#0f0f23',
+      color: theme.tintTextColor,
       letterSpacing: 1,
+      textTransform: "uppercase",
     },
   });

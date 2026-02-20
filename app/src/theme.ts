@@ -17,36 +17,50 @@ const colors = {
   defiCyan: '#00e5e5',
   defiPurple: '#a78bfa',
   defiGreen: '#00ff88',
-  defiDarkPurple: '#1e1e3f'
+  defiDarkPurple: '#1e1e3f',
+  // Modern light theme palette
+  lightBackground: '#F9FAFB', // soft off-white
+  lightSurface: '#FFFFFF', // cards / surfaces
+  lightMutedText: '#6B7280', // gray-600
+  lightBorder: '#E5E7EB', // gray-200
+  lightPrimary: '#6366F1', // indigo-500
+  lightPrimarySoft: '#EEF2FF', // indigo-50
+  lightSuccess: '#16A34A', // green-600
+  lightError: '#DC2626', // red-600
 }
 
 const fonts = {
-  ultraLightFont: 'Geist-Ultralight',
-  thinFont: 'Geist-Thin',
-  regularFont: 'Geist-Regular',
-  lightFont: 'Geist-Light',
-  mediumFont: 'Geist-Medium',
-  semiBoldFont: 'Geist-SemiBold',
-  boldFont: 'Geist-Bold',
-  blackFont: 'Geist-Black',
-  ultraBlackFont: 'Geist-Ultrablack',
+  ultraLightFont: 'Inter-ExtraLight',
+  thinFont: 'Inter-Thin',
+  regularFont: 'Inter-Regular',
+  lightFont: 'Inter-Light',
+  mediumFont: 'Inter-Medium',
+  semiBoldFont: 'Inter-SemiBold',
+  boldFont: 'Inter-Bold',
+  blackFont: 'Inter-Black',
+  ultraBlackFont: 'Inter-ExtraBold',
+  // display font for special titles / hero text
+  displayRegular: 'Lora-Regular',
+  displaySemiBold: 'Lora-SemiBold',
+  displayBold: 'Lora-Bold',
 }
 
 const lightTheme = {
   ...fonts,
   name: 'Light',
   label: 'light',
-  textColor: colors.black,
-  secondaryTextColor: colors.white,
-  mutedForegroundColor: colors.gray,
-  backgroundColor: colors.white,
-  placeholderTextColor: colors.gray,
-  secondaryBackgroundColor: colors.black,
-  borderColor: 'rgba(0, 0, 0, .15)',
-  tintColor: '#0281ff',
+  textColor: '#111827', // gray-900
+  secondaryTextColor: colors.lightMutedText,
+  mutedForegroundColor: colors.lightMutedText,
+  backgroundColor: colors.lightBackground,
+  placeholderTextColor: '#9CA3AF', // gray-400
+  secondaryBackgroundColor: colors.lightSurface,
+  borderColor: colors.lightBorder,
+  // primary action color (buttons, chips, key accents)
+  tintColor: '#020617', // almost-black for strong contrast
   tintTextColor: colors.white,
-  tabBarActiveTintColor: colors.black,
-  tabBarInactiveTintColor: colors.gray,
+  tabBarActiveTintColor: '#020617',
+  tabBarInactiveTintColor: colors.lightMutedText,
 }
 
 const darkTheme = {

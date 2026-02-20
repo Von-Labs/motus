@@ -9,32 +9,37 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useContext, useState, useEffect } from "react";
-import { ThemeContext, AppContext } from "../context";
+import { useRoute, useNavigation } from "@react-navigation/native";
+import { ThemeContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getWalletTransactionById, WalletTransaction } from "../utils/database";
 import { formatDate, getTypeIcon, getTypeLabel } from "../utils/transactionHelpers";
 import { getStyles } from "./transactionDetail.styles";
 
+type TransactionDetailParams = { transactionId?: number };
+
 export function TransactionDetail() {
   const { theme } = useContext(ThemeContext);
-  const { selectedTransactionId, setCurrentScreen } = useContext(AppContext);
+  const route = useRoute();
+  const navigation = useNavigation();
+  const transactionId = (route.params as TransactionDetailParams)?.transactionId;
   const styles = getStyles(theme);
   const [transaction, setTransaction] = useState<WalletTransaction | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadTransaction();
-  }, [selectedTransactionId]);
+  }, [transactionId]);
 
   async function loadTransaction() {
-    if (!selectedTransactionId) {
+    if (transactionId == null) {
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const tx = await getWalletTransactionById(selectedTransactionId);
+      const tx = await getWalletTransactionById(transactionId);
       setTransaction(tx);
     } catch (error) {
       console.error("Failed to load transaction:", error);
@@ -55,7 +60,7 @@ export function TransactionDetail() {
   }
 
   function goBack() {
-    setCurrentScreen("transactions");
+    navigation.goBack();
   }
 
   if (loading) {
