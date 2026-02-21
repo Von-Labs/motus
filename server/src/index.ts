@@ -5,7 +5,6 @@ import jupiterSwapRouter from './jupiter/swapRouter'
 import { sendRouter } from './sends'
 import userRouter from './user/userRouter'
 import bodyParser from 'body-parser'
-import 'dotenv/config'
 
 // Debug: Check if env vars are loaded
 console.log('🔑 Environment Check:', {

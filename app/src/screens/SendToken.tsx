@@ -13,6 +13,7 @@ import {
   FlatList,
 } from "react-native";
 import { useContext, useState, useCallback } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { DOMAIN } from "../../constants";
@@ -64,7 +65,8 @@ const COMMON_TOKENS: TokenOption[] = [
 
 export function SendToken() {
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, setCurrentScreen } = useContext(AppContext);
+  const { walletAddress } = useContext(AppContext);
+  const navigation = useNavigation();
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [selectedToken, setSelectedToken] = useState<TokenOption>(SOL_OPTION);
@@ -195,7 +197,7 @@ export function SendToken() {
       Alert.alert(
         "Sent",
         `Transaction successful.\nSignature: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
-        [{ text: "OK", onPress: () => setCurrentScreen("transactions") }]
+        [{ text: "OK", onPress: () => (navigation as any).navigate("Transactions") }]
       );
       setRecipient("");
       setAmount("");

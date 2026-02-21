@@ -2,27 +2,13 @@ import { StyleSheet } from "react-native";
 
 export const getStyles = (theme: any) =>
   StyleSheet.create({
-    overlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      zIndex: 999,
-    },
     sidebar: {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      bottom: 0,
-      width: 280,
-      backgroundColor: theme.backgroundColor,
+      flex: 1,
+      backgroundColor: theme.secondaryBackgroundColor,
       borderRightWidth: 1,
       borderRightColor: theme.borderColor,
-      zIndex: 1000,
       padding: 20,
-      paddingTop: 50,
+      paddingTop: 40,
     },
     header: {
       flexDirection: "row",
@@ -42,17 +28,19 @@ export const getStyles = (theme: any) =>
       marginBottom: 30,
     },
     walletCard: {
-      backgroundColor: theme.tintColor,
-      borderRadius: 12,
+      backgroundColor: theme.secondaryBackgroundColor,
+      borderRadius: 16,
       padding: 16,
       flexDirection: "row",
       alignItems: "center",
+      borderWidth: 1,
+      borderColor: theme.borderColor,
     },
     walletIconContainer: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: "rgba(0, 229, 229, 0.15)",
+      backgroundColor: "rgba(148, 163, 184, 0.16)",
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
@@ -62,16 +50,15 @@ export const getStyles = (theme: any) =>
     },
     walletLabel: {
       fontSize: 12,
-      color: theme.tintTextColor,
+      color: theme.mutedForegroundColor,
       fontFamily: theme.lightFont,
-      opacity: 0.8,
       marginBottom: 4,
     },
     walletAddress: {
       fontSize: 16,
-      color: theme.tintTextColor,
+      color: theme.textColor,
       fontFamily: theme.semiBoldFont,
-      letterSpacing: 1,
+      letterSpacing: 0.5,
     },
     menuSection: {
       flex: 1,
@@ -79,10 +66,10 @@ export const getStyles = (theme: any) =>
     menuItem: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 16,
+      paddingVertical: 14,
       paddingHorizontal: 12,
-      borderRadius: 8,
-      marginBottom: 8,
+      borderRadius: 10,
+      marginBottom: 6,
     },
     menuText: {
       fontSize: 16,
@@ -129,11 +116,11 @@ export const getStyles = (theme: any) =>
     conversationItem: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 12,
+      paddingVertical: 10,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: 10,
       marginBottom: 6,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      backgroundColor: theme.secondaryBackgroundColor,
     },
     conversationInfo: {
       flex: 1,

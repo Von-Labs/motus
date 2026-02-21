@@ -6,6 +6,7 @@ interface EmptyStateTextProps {
   theme: {
     textColor: string;
     regularFont: string;
+    displayRegular?: string;
   };
   style?: ViewStyle;
 }
@@ -44,12 +45,12 @@ export function EmptyStateText({ text, theme, style }: EmptyStateTextProps) {
   );
 }
 
-const getStyles = (theme: { textColor: string; regularFont: string }) =>
+const getStyles = (theme: { textColor: string; regularFont: string; displayRegular?: string }) =>
   StyleSheet.create({
     text: {
       color: theme.textColor,
       fontSize: 24,
-      fontFamily: theme.regularFont,
+      fontFamily: theme.displayRegular || 'Lora-Regular',
       marginTop: 20,
       textAlign: 'center',
       paddingHorizontal: 40,

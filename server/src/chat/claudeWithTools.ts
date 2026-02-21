@@ -1,8 +1,27 @@
 import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
 import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
-import { driftTools, handleToolCall as handleDriftToolCall } from '../drift'
 import { db } from '../db/supabase'
+
+// Lazy-load Drift to avoid crashing on Windows when yellowstone-grpc native binding is missing
+let _driftModule: { driftTools: any[]; handleToolCall: (name: string, input: any) => Promise<any> } | null | undefined = undefined
+function getDriftModule () {
+  if (_driftModule !== undefined) return _driftModule
+  try {
+    _driftModule = require('../drift')
+    return _driftModule
+  } catch (e) {
+    console.warn('Drift module not available (native binding may be missing on this platform):', (e as Error)?.message)
+    _driftModule = null
+    return null
+  }
+}
+function getDriftTools () { return getDriftModule()?.driftTools ?? [] }
+async function handleDriftToolCall (name: string, input: any) {
+  const mod = getDriftModule()
+  if (!mod) return { error: 'Drift Protocol is not available on this server (native dependencies missing).' }
+  return mod.handleToolCall(name, input)
+}
 
 type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
 type ModelName =
@@ -152,7 +171,7 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             messages: conversationMessages,
             max_tokens: 4096,
             system: systemPrompt || defaultSystemPrompt,
-            tools: [...jupiterTools, ...driftTools]
+            tools: [...jupiterTools, ...getDriftTools()]
           })
         })
 
@@ -204,7 +223,7 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             )
 
             // Execute the tool - route to correct handler based on tool name
-            const isDriftTool = driftTools.some(tool => tool.name === toolUse.name)
+            const isDriftTool = getDriftTools().some(tool => tool.name === toolUse.name)
             const toolResult = isDriftTool
               ? await handleDriftToolCall(toolUse.name, toolUse.input)
               : await handleJupiterToolCall(toolUse.name, toolUse.input)

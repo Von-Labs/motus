@@ -355,14 +355,14 @@ export function Usage() {
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.backgroundColor },
+    container: { flex: 1, backgroundColor: 'transparent' },
     loadingContainer: {
       flex: 1, justifyContent: 'center', alignItems: 'center',
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: 'transparent',
     },
     errorContainer: {
       flex: 1, justifyContent: 'center', alignItems: 'center',
-      backgroundColor: theme.backgroundColor, padding: 20,
+      backgroundColor: 'transparent', padding: 20,
     },
     errorText: { color: '#ff4444', fontSize: 16, marginBottom: 20, textAlign: 'center' },
     retryButton: {
@@ -373,7 +373,12 @@ const getStyles = (theme: any) =>
     statsContainer: { flexDirection: 'row', padding: 16, gap: 12 },
     statCard: {
       flex: 1, backgroundColor: theme.secondaryBackgroundColor,
-      padding: 16, borderRadius: 12, borderWidth: 1, borderColor: theme.borderColor,
+      padding: 16, borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
     },
     statLabel: {
       color: theme.secondaryTextColor, fontSize: 12,
@@ -401,7 +406,12 @@ const getStyles = (theme: any) =>
     },
     depositCard: {
       backgroundColor: theme.secondaryBackgroundColor, borderRadius: 16,
-      borderWidth: 1, borderColor: theme.borderColor, padding: 20, marginBottom: 8,
+      padding: 20, marginBottom: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
     },
     depositTitle: {
       color: theme.textColor, fontSize: 18, fontWeight: '700',
@@ -439,8 +449,12 @@ const getStyles = (theme: any) =>
     },
     usageCard: {
       backgroundColor: theme.secondaryBackgroundColor, borderRadius: 12,
-      borderWidth: 1, borderColor: theme.borderColor,
       padding: 16, marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
     },
     usageHeader: {
       flexDirection: 'row', justifyContent: 'space-between',
