@@ -9,7 +9,8 @@
     "ngrok": "ngrok http 3050",
     "dev": "concurrently \"npx tsc --watch\" \"nodemon --exitcrash dist/index.js\"",
     "ngrokfixed": "ngrok http --domain=f82f850f17ee-443370837071186036.ngrok-free.app 3050",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "verify-db": "npx ts-node -r dotenv/config scripts/verify-supabase-db.ts"
   },
   "keywords": [],
   "author": "",
@@ -42,7 +43,8 @@
     "@types/multer": "^1.4.11",
     "@types/node-fetch": "^2.6.9",
     "concurrently": "^8.2.2",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.2"
   },
   "packageManager": "pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184"
 }
