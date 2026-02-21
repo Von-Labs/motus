@@ -11,8 +11,9 @@ import {
   Platform,
   Modal,
   FlatList,
+  AppState,
 } from "react-native";
-import { useContext, useState, useCallback } from "react";
+import { useContext, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { ThemeContext, AppContext } from "../context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -77,6 +78,19 @@ export function SendToken() {
   const [tokenSearchQuery, setTokenSearchQuery] = useState("");
   const [tokenSearchResults, setTokenSearchResults] = useState<TokenOption[]>([]);
   const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [successSignature, setSuccessSignature] = useState<string | null>(null);
+  const sendJustSucceededRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active" && sendJustSucceededRef.current) {
+        sendJustSucceededRef.current = false;
+      }
+    });
+    return () => sub.remove();
+  }, [navigation]);
 
   const searchTokens = useCallback(async (query: string) => {
     const trimmed = query.trim();
@@ -194,13 +208,11 @@ export function SendToken() {
         cluster
       );
 
-      Alert.alert(
-        "Sent",
-        `Transaction successful.\nSignature: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
-        [{ text: "OK", onPress: () => (navigation as any).navigate("Transactions") }]
-      );
       setRecipient("");
       setAmount("");
+      setSuccessSignature(signature);
+      setSuccessModalVisible(true);
+      sendJustSucceededRef.current = true;
     } catch (e: any) {
       const raw = e?.message || String(e);
       const isNetworkError =
@@ -223,12 +235,16 @@ export function SendToken() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
     >
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 320 }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <Text style={styles.title}>Send token</Text>
@@ -255,61 +271,104 @@ export function SendToken() {
           transparent
           onRequestClose={() => setTokenModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.backgroundColor }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: theme.textColor }]}>Select token</Text>
-                <TouchableOpacity onPress={() => setTokenModalVisible(false)}>
-                  <Ionicons name="close" size={28} color={theme.textColor} />
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.backgroundColor }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: theme.textColor }]}>Select token</Text>
+                  <TouchableOpacity onPress={() => setTokenModalVisible(false)}>
+                    <Ionicons name="close" size={28} color={theme.textColor} />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={[styles.tokenOption, { borderColor: theme.borderColor }]}
+                  onPress={() => selectToken(SOL_OPTION)}
+                >
+                  <Text style={[styles.tokenOptionSymbol, { color: theme.textColor }]}>SOL</Text>
+                  <Text style={[styles.tokenOptionName, { color: theme.textColor, opacity: 0.7 }]}>Solana (native)</Text>
                 </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={[styles.tokenOption, { borderColor: theme.borderColor }]}
-                onPress={() => selectToken(SOL_OPTION)}
-              >
-                <Text style={[styles.tokenOptionSymbol, { color: theme.textColor }]}>SOL</Text>
-                <Text style={[styles.tokenOptionName, { color: theme.textColor, opacity: 0.7 }]}>Solana (native)</Text>
-              </TouchableOpacity>
-              <Text style={[styles.label, { marginTop: 12 }]}>Search by name or symbol</Text>
-              <TextInput
-                style={[styles.input, { marginBottom: 8 }]}
-                value={tokenSearchQuery}
-                onChangeText={(q) => {
-                  setTokenSearchQuery(q);
-                  if (q.trim().length >= 2) {
-                    searchTokens(q);
-                  } else {
-                    setTokenSearchResults([]);
-                  }
-                }}
-                placeholder="e.g. USDC, BONK..."
-                placeholderTextColor={theme.textColor + "80"}
-                autoCapitalize="characters"
-              />
-              {tokenSearchLoading ? (
-                <ActivityIndicator size="small" color={theme.tintColor} style={{ marginVertical: 16 }} />
-              ) : tokenSearchResults.length > 0 ? (
-                <FlatList
-                  data={tokenSearchResults}
-                  keyExtractor={(item) => item.address || "sol"}
-                  style={styles.tokenList}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[styles.tokenOption, { borderColor: theme.borderColor }]}
-                      onPress={() => selectToken(item)}
-                    >
-                      <Text style={[styles.tokenOptionSymbol, { color: theme.textColor }]}>{item.symbol}</Text>
-                      <Text style={[styles.tokenOptionName, { color: theme.textColor, opacity: 0.7 }]} numberOfLines={1}>
-                        {item.name || item.address?.slice(0, 8) + "..."}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                <Text style={[styles.label, { marginTop: 12 }]}>Search by name or symbol</Text>
+                <TextInput
+                  style={[styles.input, { marginBottom: 8 }]}
+                  value={tokenSearchQuery}
+                  onChangeText={(q) => {
+                    setTokenSearchQuery(q);
+                    if (q.trim().length >= 2) {
+                      searchTokens(q);
+                    } else {
+                      setTokenSearchResults([]);
+                    }
+                  }}
+                  placeholder="e.g. USDC, BONK..."
+                  placeholderTextColor={theme.textColor + "80"}
+                  autoCapitalize="characters"
                 />
-              ) : tokenSearchQuery.trim().length >= 2 ? (
-                <Text style={[styles.noResultsText, { color: theme.textColor }]}>
-                  No tokens found for "{tokenSearchQuery.trim()}"
+                {tokenSearchLoading ? (
+                  <ActivityIndicator size="small" color={theme.tintColor} style={{ marginVertical: 16 }} />
+                ) : tokenSearchResults.length > 0 ? (
+                  <FlatList
+                    data={tokenSearchResults}
+                    keyExtractor={(item) => item.address || "sol"}
+                    style={styles.tokenList}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[styles.tokenOption, { borderColor: theme.borderColor }]}
+                        onPress={() => selectToken(item)}
+                      >
+                        <Text style={[styles.tokenOptionSymbol, { color: theme.textColor }]}>{item.symbol}</Text>
+                        <Text style={[styles.tokenOptionName, { color: theme.textColor, opacity: 0.7 }]} numberOfLines={1}>
+                          {item.name || item.address?.slice(0, 8) + "..."}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                ) : tokenSearchQuery.trim().length >= 2 ? (
+                  <Text style={[styles.noResultsText, { color: theme.textColor }]}>
+                    No tokens found for "{tokenSearchQuery.trim()}"
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        <Modal
+          visible={successModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setSuccessModalVisible(false);
+            setSuccessSignature(null);
+            (navigation as any).navigate("Home");
+          }}
+        >
+          <View style={styles.successOverlay}>
+            <View style={[styles.successCard, { backgroundColor: theme.secondaryBackgroundColor, borderColor: theme.borderColor }]}>
+              <View style={[styles.successIconWrap, { backgroundColor: theme.tintColor + "20" }]}>
+                <Ionicons name="checkmark-circle" size={48} color={theme.tintColor} />
+              </View>
+              <Text style={[styles.successTitle, { color: theme.textColor }]}>Sent</Text>
+              <Text style={[styles.successMessage, { color: theme.mutedForegroundColor }]}>Transaction successful</Text>
+              {successSignature ? (
+                <Text style={[styles.successSignature, { color: theme.textColor }]} numberOfLines={1}>
+                  {successSignature.slice(0, 8)}...{successSignature.slice(-8)}
                 </Text>
               ) : null}
+              <TouchableOpacity
+                style={[styles.successButton, { backgroundColor: theme.tintColor }]}
+                onPress={() => {
+                  setSuccessModalVisible(false);
+                  setSuccessSignature(null);
+                  (navigation as any).navigate("Home");
+                }}
+              >
+                <Text style={[styles.successButtonText, { color: theme.tintTextColor || "#fff" }]}>OK</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -346,6 +405,7 @@ export function SendToken() {
           autoCapitalize="none"
           autoCorrect={false}
           editable={!loading}
+          onFocus={() => scrollRef.current?.scrollTo({ y: 200, animated: true })}
         />
 
         <Text style={styles.label}>Amount ({selectedToken.symbol})</Text>
@@ -357,6 +417,7 @@ export function SendToken() {
           placeholderTextColor={theme.textColor + "80"}
           keyboardType="decimal-pad"
           editable={!loading}
+          onFocus={() => scrollRef.current?.scrollTo({ y: 300, animated: true })}
         />
 
         {error ? (
@@ -506,6 +567,56 @@ const getStyles = (theme: any) =>
       fontFamily: theme.lightFont,
       opacity: 0.7,
       marginTop: 12,
+    },
+    successOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    successCard: {
+      width: "100%",
+      maxWidth: 340,
+      borderRadius: 20,
+      borderWidth: 1,
+      padding: 24,
+      alignItems: "center",
+    },
+    successIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    successTitle: {
+      fontSize: 22,
+      fontFamily: theme.semiBoldFont,
+      marginBottom: 8,
+    },
+    successMessage: {
+      fontSize: 15,
+      fontFamily: theme.regularFont,
+      marginBottom: 8,
+    },
+    successSignature: {
+      fontSize: 13,
+      fontFamily: theme.regularFont,
+      opacity: 0.8,
+      marginBottom: 20,
+    },
+    successButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 12,
+      minWidth: 120,
+      alignItems: "center",
+    },
+    successButtonText: {
+      fontSize: 16,
+      fontFamily: theme.semiBoldFont,
     },
     label: {
       fontSize: 14,

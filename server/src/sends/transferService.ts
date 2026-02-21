@@ -21,9 +21,10 @@ const RPC_BY_CLUSTER: Record<string, string> = {
 }
 
 function getConnection(cluster?: 'mainnet-beta' | 'devnet'): Connection {
-  const rpc = cluster
-    ? RPC_BY_CLUSTER[cluster]
-    : (process.env.SOLANA_RPC_URL || RPC_BY_CLUSTER['mainnet-beta'])
+  const rpc =
+    cluster === 'devnet'
+      ? RPC_BY_CLUSTER.devnet
+      : (process.env.SOLANA_RPC_URL || RPC_BY_CLUSTER['mainnet-beta'])
   return new Connection(rpc)
 }
 
