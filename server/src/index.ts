@@ -4,7 +4,6 @@ import imagesRouter from './images/imagesRouter'
 import jupiterSwapRouter from './jupiter/swapRouter'
 import userRouter from './user/userRouter'
 import bodyParser from 'body-parser'
-import 'dotenv/config'
 
 // Debug: Check if env vars are loaded
 console.log('🔑 Environment Check:', {
