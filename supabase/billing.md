@@ -1,4 +1,4 @@
-# Supabase Setup and Billing System
+# Supabase Billing System
 
 ## Overview
 
@@ -36,7 +36,7 @@ This project uses Supabase as the database to manage user billing, API usage tra
 
 ### 1. Create Supabase Project
 
-1. Go to [Supabase Dashboard](https://app.supabase.com)
+1. Go to Supabase Dashboard
 2. Create a new project
 3. Save your project URL and anon key
 
@@ -47,10 +47,10 @@ You can run the migration in two ways:
 #### Option A: Using Supabase Dashboard (Recommended)
 
 1. Go to your Supabase project dashboard
-2. Navigate to **SQL Editor**
-3. Click **New Query**
+2. Navigate to SQL Editor
+3. Click New Query
 4. Copy the contents of `migrations/001_initial_schema.sql`
-5. Paste and click **Run**
+5. Paste and click Run
 
 #### Option B: Using Supabase CLI
 
@@ -81,6 +81,7 @@ SUPABASE_DB_PASSWORD="your-db-password"
 ### 4. Verify Setup
 
 After running the migration, verify these tables exist:
+
 - users
 - api_usage
 - usdc_transactions
@@ -175,6 +176,7 @@ router.post('/chat/claude', checkBalance, claude);
 ```
 
 This middleware:
+
 - Requires `X-Wallet-Address` header
 - Checks if user has free requests or USDC balance
 - Returns 402 Payment Required if insufficient balance
@@ -205,6 +207,7 @@ SELECT * FROM calculate_api_cost('claude-sonnet-4-5-20250929', 1000, 500);
 ### process_api_request(...)
 
 Processes an API request:
+
 1. Gets or creates user
 2. Calculates cost
 3. Uses free request if available, otherwise deducts from USDC balance
@@ -297,17 +300,20 @@ ORDER BY revenue DESC;
 ### Missing Environment Variables
 
 If you see "Missing Supabase environment variables", check that `.env` contains:
+
 - SUPABASE_URL
 - SUPABASE_ANON_KEY
 
 ### Insufficient Balance Error
 
 When user gets 402 error, they need to:
+
 1. Check their balance via `/api/user/stats`
 2. Deposit USDC to continue using the API
 
 ### RLS Policy Errors
 
 If queries fail with permission errors, ensure:
+
 1. You're using the service role key for server-side operations
 2. RLS context is set correctly for client-side queries
