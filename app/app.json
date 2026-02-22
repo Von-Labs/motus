@@ -26,6 +26,17 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-font", "expo-sqlite"]
+    "plugins": [
+      "expo-font",
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use your Face ID biometric data for protecting your wallet."
+        }
+      ]
+    ]
   }
 }

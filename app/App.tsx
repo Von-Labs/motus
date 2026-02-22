@@ -28,6 +28,7 @@ import { AppContext, ThemeContext } from "./src/context";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
   Bluetooth,
+  HotWallet,
   Settings,
   TransactionDetail,
   TransactionHistory,
@@ -257,6 +258,10 @@ function RootNavigator() {
               headerTitleStyle: { fontFamily: "Lora-SemiBold", fontSize: 18 },
               headerRight: () => <SettingsFormSheetHeaderRight />,
             }}
+          />
+          <Stack.Screen
+            name="HotWallet"
+            component={HotWallet}
           />
         </>
       )}

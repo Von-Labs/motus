@@ -55,7 +55,15 @@ export function Header() {
           <Text style={styles.title}>Motus</Text>
         </View>
 
-        <View style={styles.rightContainer}></View>
+        <View style={styles.rightContainer}>
+          <TouchableOpacity
+            style={styles.hotWalletButton}
+            onPress={() => navigation.getParent?.()?.navigate("HotWallet" as never)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flame" size={18} color={theme.tintColor} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Disconnect Modal */}
@@ -126,6 +134,11 @@ function getStyles(theme: any) {
       justifyContent: "center",
       flexDirection: "row",
       gap: 8,
+    },
+    hotWalletButton: {
+      padding: 8,
+      borderRadius: 999,
+      backgroundColor: `${theme.tintColor}14`,
     },
     menuButton: {
       padding: 10,

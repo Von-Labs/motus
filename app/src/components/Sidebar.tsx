@@ -117,6 +117,21 @@ export function Sidebar(props: DrawerContentComponentProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
+              props.navigation.closeDrawer();
+              (props.navigation.getParent() as any)?.navigate("HotWallet");
+            }}
+          >
+            <Ionicons
+              name="flame-outline"
+              size={20}
+              color={theme.textColor}
+            />
+            <Text style={styles.menuText}>Hot Wallet</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
               props.navigation.navigate("Transactions");
               props.navigation.closeDrawer();
             }}
