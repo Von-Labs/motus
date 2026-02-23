@@ -1,5 +1,5 @@
-import { MobileWalletProvider } from "@wallet-ui/react-native-web3js";
 import { clusterApiUrl } from "@solana/web3.js";
+import { MobileWalletProvider } from "@wallet-ui/react-native-web3js";
 import App from "./App";
 
 const chain = "solana:devnet";

@@ -2,6 +2,7 @@ import { useContext, type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { Chat } from "./screens";
 import { Header, AppBackground } from "./components";
+import { HotWalletBanner } from "./components/hotWallet/HotWalletBanner";
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -40,6 +41,7 @@ function MainComponent() {
     <AppBackground backgroundKey="default">
       <View style={styles.container}>
         <Header />
+        <HotWalletBanner />
         <Chat />
       </View>
     </AppBackground>

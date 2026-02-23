@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { useContext, useState } from "react";
 import { ThemeContext } from "../../context";
+import { useHotWallet } from "../../context/HotWalletContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BalanceCard } from "./BalanceCard";
 import { AddressCard } from "./AddressCard";
@@ -27,8 +28,9 @@ export function WalletDashboard({
   onSend,
 }: WalletDashboardProps) {
   const { theme } = useContext(ThemeContext);
+  const { exportSecretKey } = useHotWallet();
   const styles = getStyles(theme);
-  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
   const handleExportKey = () => {
     Alert.alert(
@@ -40,8 +42,9 @@ export function WalletDashboard({
           text: "Show Key",
           style: "destructive",
           onPress: () => {
-            setShowPrivateKey(true);
-            setTimeout(() => setShowPrivateKey(false), 30000);
+            const key = exportSecretKey();
+            setRevealedKey(key);
+            setTimeout(() => setRevealedKey(null), 30000);
           },
         },
       ],
@@ -110,8 +113,8 @@ export function WalletDashboard({
           subtitle="Reveal key (visible for 30s)"
           onPress={handleExportKey}
         />
-        {showPrivateKey && (
-          <PrivateKeyReveal privateKey="5Kd3NBUAdUnhyzenEwVLy9pBKxSwXvE9FMPyR4UKZwEzaqGfBLH8..." />
+        {revealedKey && (
+          <PrivateKeyReveal privateKey={revealedKey} />
         )}
         <ActionRow
           icon="trash-outline"

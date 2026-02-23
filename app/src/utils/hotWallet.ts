@@ -1,6 +1,6 @@
 import { Keypair } from "@solana/web3.js";
 import * as SecureStore from "expo-secure-store";
-import { Buffer } from "buffer";
+import { fromByteArray, toByteArray } from "react-native-quick-base64";
 
 const STORAGE_KEY = "HOT_WALLET_SECRET_KEY";
 
@@ -10,20 +10,30 @@ const SECURE_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
 
 export async function generateHotWallet(): Promise<Keypair> {
   const keypair = Keypair.generate();
-  const secretBase64 = Buffer.from(keypair.secretKey).toString("base64");
-  await SecureStore.setItemAsync(STORAGE_KEY, secretBase64, SECURE_STORE_OPTIONS);
+  const secretBase64 = fromByteArray(keypair.secretKey);
+  await SecureStore.setItemAsync(
+    STORAGE_KEY,
+    secretBase64,
+    SECURE_STORE_OPTIONS,
+  );
   return keypair;
 }
 
 export async function getHotWalletKeypair(): Promise<Keypair | null> {
-  const stored = await SecureStore.getItemAsync(STORAGE_KEY, SECURE_STORE_OPTIONS);
+  const stored = await SecureStore.getItemAsync(
+    STORAGE_KEY,
+    SECURE_STORE_OPTIONS,
+  );
   if (!stored) return null;
-  const secretKey = new Uint8Array(Buffer.from(stored, "base64"));
+  const secretKey = toByteArray(stored);
   return Keypair.fromSecretKey(secretKey);
 }
 
 export async function hasHotWallet(): Promise<boolean> {
-  const stored = await SecureStore.getItemAsync(STORAGE_KEY, SECURE_STORE_OPTIONS);
+  const stored = await SecureStore.getItemAsync(
+    STORAGE_KEY,
+    SECURE_STORE_OPTIONS,
+  );
   return stored !== null;
 }
 
@@ -36,5 +46,5 @@ export function getPublicKeyString(keypair: Keypair): string {
 }
 
 export function getSecretKeyBase58(keypair: Keypair): string {
-  return Buffer.from(keypair.secretKey).toString("base64");
+  return fromByteArray(keypair.secretKey);
 }

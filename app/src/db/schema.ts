@@ -41,6 +41,7 @@ export const walletTransactions = sqliteTable('wallet_transactions', {
   signature: text('signature').notNull(),
   status: text('status', { enum: ['success', 'failed'] }).notNull(),
   details: text('details').notNull(), // JSON string with transaction details
+  signer: text('signer', { enum: ['hot_wallet', 'main_wallet'] }), // who signed the tx
   createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
 });
 

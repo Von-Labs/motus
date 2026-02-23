@@ -23,8 +23,10 @@ import {
   OnboardingScreen,
   Sidebar,
 } from "./src/components/index";
+import { TopUpBottomSheet } from "./src/components/hotWallet/TopUpBottomSheet";
 import { Drawer, Stack } from "./src/constants/navigation";
 import { AppContext, ThemeContext } from "./src/context";
+import { HotWalletProvider } from "./src/context/HotWalletContext";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
   Bluetooth,
@@ -153,57 +155,60 @@ export default function App() {
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <QueryClientProvider client={queryClient}>
-          <AppContext.Provider
-            value={{
-              chatType,
-              setChatType: _setChatType,
-              handlePresentModalPress,
-              imageModel,
-              setImageModel: _setImageModel,
-              closeModal,
-              walletAddress,
-              setWalletAddress,
-              sidebarOpen,
-              setSidebarOpen,
-              currentConversationId,
-              setCurrentConversationId,
-            }}
-          >
-            <ThemeContext.Provider
+          <HotWalletProvider>
+            <AppContext.Provider
               value={{
-                theme: getTheme(theme),
-                themeName: theme,
-                setTheme: _setTheme,
+                chatType,
+                setChatType: _setChatType,
+                handlePresentModalPress,
+                imageModel,
+                setImageModel: _setImageModel,
+                closeModal,
+                walletAddress,
+                setWalletAddress,
+                sidebarOpen,
+                setSidebarOpen,
+                currentConversationId,
+                setCurrentConversationId,
               }}
             >
-              <ActionSheetProvider>
-                <NavigationContainer>
-                  <RootNavigator />
-                </NavigationContainer>
-              </ActionSheetProvider>
-              <BottomSheetModalProvider>
-                <BottomSheetModal
-                  handleIndicatorStyle={bottomSheetStyles.handleIndicator}
-                  handleStyle={bottomSheetStyles.handle}
-                  backgroundStyle={bottomSheetStyles.background}
-                  ref={bottomSheetModalRef}
-                  enableDynamicSizing={true}
-                  backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
-                  )}
-                  enableDismissOnClose
-                  enablePanDownToClose
-                  onDismiss={() => setModalVisible(false)}
-                >
-                  <BottomSheetView>
-                    <ChatModelModal
-                      handlePresentModalPress={handlePresentModalPress}
-                    />
-                  </BottomSheetView>
-                </BottomSheetModal>
-              </BottomSheetModalProvider>
-            </ThemeContext.Provider>
-          </AppContext.Provider>
+              <ThemeContext.Provider
+                value={{
+                  theme: getTheme(theme),
+                  themeName: theme,
+                  setTheme: _setTheme,
+                }}
+              >
+                <ActionSheetProvider>
+                  <NavigationContainer>
+                    <RootNavigator />
+                  </NavigationContainer>
+                </ActionSheetProvider>
+                <BottomSheetModalProvider>
+                  <BottomSheetModal
+                    handleIndicatorStyle={bottomSheetStyles.handleIndicator}
+                    handleStyle={bottomSheetStyles.handle}
+                    backgroundStyle={bottomSheetStyles.background}
+                    ref={bottomSheetModalRef}
+                    enableDynamicSizing={true}
+                    backdropComponent={(props) => (
+                      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
+                    )}
+                    enableDismissOnClose
+                    enablePanDownToClose
+                    onDismiss={() => setModalVisible(false)}
+                  >
+                    <BottomSheetView>
+                      <ChatModelModal
+                        handlePresentModalPress={handlePresentModalPress}
+                      />
+                    </BottomSheetView>
+                  </BottomSheetModal>
+                  <TopUpBottomSheet />
+                </BottomSheetModalProvider>
+              </ThemeContext.Provider>
+            </AppContext.Provider>
+          </HotWalletProvider>
         </QueryClientProvider>
       </GestureHandlerRootView>
     </View>
@@ -259,10 +264,7 @@ function RootNavigator() {
               headerRight: () => <SettingsFormSheetHeaderRight />,
             }}
           />
-          <Stack.Screen
-            name="HotWallet"
-            component={HotWallet}
-          />
+          <Stack.Screen name="HotWallet" component={HotWallet} />
         </>
       )}
     </Stack.Navigator>
