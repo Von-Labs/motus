@@ -10,7 +10,9 @@
     "dev": "concurrently \"npx tsc --watch\" \"nodemon --exitcrash -r dotenv/config dist/index.js\"",
     "ngrokfixed": "ngrok http --domain=f82f850f17ee-443370837071186036.ngrok-free.app 3050",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "verify-db": "npx ts-node -r dotenv/config scripts/verify-supabase-db.ts"
+    "verify-db": "npx ts-node -r dotenv/config scripts/verify-supabase-db.ts",
+    "test-send-prepare": "node scripts/test-send-prepare.js",
+    "test-send-prepare:jupiter": "node scripts/test-send-prepare.js jupiter"
   },
   "keywords": [],
   "author": "",
