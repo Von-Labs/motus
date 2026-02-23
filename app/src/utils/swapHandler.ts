@@ -1,63 +1,52 @@
-import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
-import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { createWalletTransaction } from "./database";
+import {
+  signAndSendTransactionFromBase64,
+  type HotWalletSignerOptions,
+} from "./transactionSigner";
+
+export interface SwapHandlerOptions {
+  hotWallet?: HotWalletSignerOptions | null;
+  cluster?: string;
+}
 
 /**
  * Handle swap transaction from Claude tool response
  * @param swapData - The swap_tokens tool result containing transaction
+ * @param options - Optional hot wallet signer (from useHotWallet) and cluster
  * @returns Transaction signature
  */
-export async function handleSwapTransaction(swapData: any): Promise<string> {
+export async function handleSwapTransaction(
+  swapData: any,
+  options?: SwapHandlerOptions,
+): Promise<string> {
   if (!swapData.transaction) {
     throw new Error("No transaction found in swap data");
   }
 
-  // Use Solana Mobile Wallet Adapter to sign and send transaction
-  const signatures = await transact(async (wallet: any) => {
-    // Authorize the wallet
-    await wallet.authorize({
-      cluster: 'mainnet-beta',
-      identity: { name: 'Solana DeFi Agent' },
-    });
+  const { signature, signer } = await signAndSendTransactionFromBase64(
+    swapData.transaction,
+    {
+      cluster: options?.cluster ?? "mainnet-beta",
+      hotWallet: options?.hotWallet ?? null,
+    },
+  );
 
-    // Deserialize the transaction
-    const transactionBuffer = Buffer.from(swapData.transaction, 'base64');
-    const uint8Array = new Uint8Array(transactionBuffer);
-
-    // Try VersionedTransaction first (Jupiter uses v0 transactions)
-    let transaction: Transaction | VersionedTransaction;
-    try {
-      transaction = VersionedTransaction.deserialize(uint8Array);
-    } catch (e) {
-      transaction = Transaction.from(transactionBuffer);
-    }
-
-    // Sign and send the transaction
-    const txSignatures = await wallet.signAndSendTransactions({
-      transactions: [transaction],
-    });
-
-    return txSignatures;
-  });
-
-  const signature = signatures[0];
-
-  // Save transaction to database
   try {
     await createWalletTransaction(
-      'swap',
+      "swap",
       signature,
-      'success',
+      "success",
       {
         inputMint: swapData.inputMint,
         outputMint: swapData.outputMint,
         inAmount: swapData.inAmount,
         outAmount: swapData.outAmount,
         priceImpactPct: swapData.priceImpactPct,
-      }
+      },
+      signer,
     );
   } catch (error) {
-    console.error('Failed to save transaction to database:', error);
+    console.error("Failed to save transaction to database:", error);
   }
 
   return signature;
@@ -66,64 +55,45 @@ export async function handleSwapTransaction(swapData: any): Promise<string> {
 /**
  * Handle trigger order transaction (limit order, cancel order, etc.)
  * @param triggerData - The trigger tool result containing transaction
+ * @param options - Optional hot wallet signer and cluster
  * @returns Transaction signature
  */
 export async function handleTriggerTransaction(
-  triggerData: any
+  triggerData: any,
+  options?: SwapHandlerOptions,
 ): Promise<string> {
   if (!triggerData.transaction) {
     throw new Error("No transaction found in trigger data");
   }
 
-  // Use Solana Mobile Wallet Adapter to sign and send transaction
-  const signatures = await transact(async (wallet: any) => {
-    // Authorize the wallet
-    await wallet.authorize({
-      cluster: 'mainnet-beta',
-      identity: { name: 'Solana DeFi Agent' },
-    });
+  const { signature, signer } = await signAndSendTransactionFromBase64(
+    triggerData.transaction,
+    {
+      cluster: options?.cluster ?? "mainnet-beta",
+      hotWallet: options?.hotWallet ?? null,
+    },
+  );
 
-    // Deserialize the transaction
-    const transactionBuffer = Buffer.from(triggerData.transaction, 'base64');
-    const uint8Array = new Uint8Array(transactionBuffer);
-
-    // Try VersionedTransaction first
-    let transaction: Transaction | VersionedTransaction;
-    try {
-      transaction = VersionedTransaction.deserialize(uint8Array);
-    } catch (e) {
-      transaction = Transaction.from(transactionBuffer);
-    }
-
-    // Sign and send the transaction
-    const txSignatures = await wallet.signAndSendTransactions({
-      transactions: [transaction],
-    });
-
-    return txSignatures;
-  });
-
-  const signature = signatures[0];
-
-  // Save transaction to database
   try {
-    // Determine transaction type
-    const isCancelOrder = !('makingAmount' in triggerData || 'order' in triggerData);
-    const type = isCancelOrder ? 'cancel_order' : 'trigger_order';
+    const isCancelOrder = !(
+      "makingAmount" in triggerData || "order" in triggerData
+    );
+    const type = isCancelOrder ? "cancel_order" : "trigger_order";
 
     await createWalletTransaction(
       type,
       signature,
-      'success',
+      "success",
       {
         requestId: triggerData.requestId,
         order: triggerData.order,
         makingAmount: triggerData.makingAmount,
         takingAmount: triggerData.takingAmount,
-      }
+      },
+      signer,
     );
   } catch (error) {
-    console.error('Failed to save transaction to database:', error);
+    console.error("Failed to save transaction to database:", error);
   }
 
   return signature;

@@ -96,9 +96,18 @@ export async function initDatabase() {
         signature TEXT NOT NULL,
         status TEXT NOT NULL,
         details TEXT NOT NULL,
+        signer TEXT,
         createdAt INTEGER NOT NULL
       );
     `);
+    // Migration: add signer column if missing (existing DBs)
+    try {
+      await expoDb.execAsync(`
+        ALTER TABLE wallet_transactions ADD COLUMN signer TEXT;
+      `);
+    } catch (_) {
+      // Column already exists
+    }
 
     // Create index for wallet transactions
     await expoDb.execAsync(`

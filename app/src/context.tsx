@@ -19,12 +19,8 @@ const AppContext = createContext<IAppContext>({
   setWalletAddress: () => null,
   sidebarOpen: false,
   setSidebarOpen: () => null,
-  currentScreen: 'chat',
-  setCurrentScreen: () => null,
   currentConversationId: null,
   setCurrentConversationId: () => null,
-  selectedTransactionId: null,
-  setSelectedTransactionId: () => null,
 })
 
 export {

@@ -1,70 +1,73 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
+import { useMobileWallet } from "@wallet-ui/react-native-web3js";
+import { useContext, useState } from "react";
 import {
-  StyleSheet, View, TouchableHighlight, Text, Modal, TouchableOpacity
-} from 'react-native'
-import { useContext, useState } from 'react'
-import { MenuIcon } from './MenuIcon'
-import { ThemeContext, AppContext } from '../../src/context'
-import Ionicons from '@expo/vector-icons/Ionicons'
-import { useMobileWallet } from "@wallet-ui/react-native-web3js"
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableHighlight,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { AppContext, ThemeContext } from "../../src/context";
+import { useHotWallet } from "../../src/context/HotWalletContext";
+import { MenuIcon } from "./MenuIcon";
 
 // Helper to format wallet address: 4 chars...4 chars
 const formatWalletAddress = (address: string) => {
-  if (!address) return '';
+  if (!address) return "";
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 };
 
-interface HeaderProps {
-  onMenuPress?: () => void;
-}
-
-export function Header({ onMenuPress }: HeaderProps) {
-  const { theme } = useContext(ThemeContext)
-  const { walletAddress, setWalletAddress } = useContext(AppContext)
-  const { disconnect } = useMobileWallet()
-  const [showDisconnectModal, setShowDisconnectModal] = useState(false)
-  const styles = getStyles(theme)
+export function Header() {
+  const { theme } = useContext(ThemeContext);
+  const { walletAddress, setWalletAddress } = useContext(AppContext);
+  const { isHotWalletFeatureEnabled } = useHotWallet();
+  const { disconnect } = useMobileWallet();
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const navigation = useNavigation<any>();
+  const styles = getStyles(theme);
 
   const handleDisconnect = async () => {
     try {
-      await disconnect()
-      setWalletAddress(null)
-      setShowDisconnectModal(false)
+      await disconnect();
+      setWalletAddress(null);
+      setShowDisconnectModal(false);
     } catch (error) {
-      console.error('Failed to disconnect:', error)
+      console.error("Failed to disconnect:", error);
     }
-  }
+  };
 
   return (
     <>
       <View style={styles.container}>
-        {/* Hamburger Menu Icon */}
-        {onMenuPress && (
+        <View style={styles.leftContainer}>
           <TouchableHighlight
             style={styles.menuButton}
-            underlayColor={'transparent'}
+            underlayColor={"transparent"}
             activeOpacity={0.6}
-            onPress={onMenuPress}
+            onPress={() => navigation.openDrawer?.()}
           >
             <MenuIcon size={24} color={theme.textColor} />
           </TouchableHighlight>
-        )}
+        </View>
 
-        {/* Spacer */}
-        <View style={styles.spacer} />
+        <View style={styles.centerContainer}>
+          <Text style={styles.title}>Motus</Text>
+        </View>
 
-        {/* Wallet Address - Clickable */}
-        {walletAddress && (
-          <TouchableHighlight
-            style={styles.walletBadge}
-            underlayColor={theme.tintColor}
-            activeOpacity={0.7}
-            onPress={() => setShowDisconnectModal(true)}
-          >
-            <Text style={styles.walletText}>
-              {formatWalletAddress(walletAddress)}
-            </Text>
-          </TouchableHighlight>
-        )}
+        <View style={styles.rightContainer}>
+          {isHotWalletFeatureEnabled && (
+            <TouchableOpacity
+              style={styles.hotWalletButton}
+              onPress={() => navigation.getParent?.()?.navigate("HotWallet" as never)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="flame" size={18} color={theme.tintColor} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Disconnect Modal */}
@@ -86,7 +89,11 @@ export function Header({ onMenuPress }: HeaderProps) {
               </View>
 
               <View style={styles.modalWalletInfo}>
-                <Ionicons name="wallet-outline" size={24} color={theme.textColor} />
+                <Ionicons
+                  name="wallet-outline"
+                  size={24}
+                  color={theme.textColor}
+                />
                 <Text style={styles.modalWalletAddress}>{walletAddress}</Text>
               </View>
 
@@ -102,43 +109,55 @@ export function Header({ onMenuPress }: HeaderProps) {
         </TouchableOpacity>
       </Modal>
     </>
-  )
+  );
 }
 
-function getStyles(theme:any) {
+function getStyles(theme: any) {
   return StyleSheet.create({
     container: {
-      paddingVertical: 15,
-      backgroundColor: theme.backgroundColor,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderColor,
-      paddingHorizontal: 15,
+      paddingVertical: 14,
+      backgroundColor: "transparent",
+      flexDirection: "row",
+      alignItems: "center",
+      borderBottomWidth: 0,
+      paddingHorizontal: 16,
+    },
+    leftContainer: {
+      width: 48,
+      alignItems: "flex-start",
+      justifyContent: "center",
+    },
+    centerContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    rightContainer: {
+      minWidth: 48,
+      alignItems: "flex-end",
+      justifyContent: "center",
+      flexDirection: "row",
+      gap: 8,
+    },
+    hotWalletButton: {
+      padding: 8,
+      borderRadius: 999,
+      backgroundColor: `${theme.tintColor}14`,
     },
     menuButton: {
       padding: 10,
     },
-    spacer: {
-      flex: 1,
-    },
     title: {
-      fontSize: 20,
-      fontFamily: theme.boldFont,
+      fontSize: 28,
+      fontFamily: theme.displaySemiBold || "Lora-SemiBold",
       color: theme.textColor,
       letterSpacing: 1,
-    },
-    rightContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
     },
     walletBadge: {
       backgroundColor: theme.tintColor,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 16,
+      borderRadius: 999,
     },
     walletText: {
       color: theme.tintTextColor,
@@ -151,9 +170,9 @@ function getStyles(theme:any) {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      justifyContent: "center",
+      alignItems: "center",
     },
     modalContent: {
       backgroundColor: theme.backgroundColor,
@@ -172,8 +191,8 @@ function getStyles(theme:any) {
       color: theme.textColor,
     },
     modalWalletInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: theme.tintColor,
       padding: 16,
       borderRadius: 12,
@@ -187,21 +206,21 @@ function getStyles(theme:any) {
       flex: 1,
     },
     modalDisconnectButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       paddingVertical: 14,
       paddingHorizontal: 16,
       borderRadius: 12,
-      backgroundColor: 'rgba(255, 68, 68, 0.1)',
+      backgroundColor: "rgba(255, 68, 68, 0.1)",
       borderWidth: 1,
-      borderColor: 'rgba(255, 68, 68, 0.3)',
+      borderColor: "rgba(255, 68, 68, 0.3)",
     },
     modalDisconnectText: {
       fontSize: 16,
-      color: '#ff4444',
+      color: "#ff4444",
       fontFamily: theme.semiBoldFont,
       marginLeft: 10,
     },
-  })
+  });
 }

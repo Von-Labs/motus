@@ -147,7 +147,8 @@ export async function createWalletTransaction(
   type: 'swap' | 'trigger_order' | 'cancel_order' | 'drift_market_order' | 'drift_limit_order' | 'drift_stop_loss' | 'drift_take_profit' | 'drift_close_position' | 'drift_cancel_order' | 'drift_other',
   signature: string,
   status: 'success' | 'failed',
-  details: any
+  details: any,
+  signer?: 'hot_wallet' | 'main_wallet'
 ): Promise<number> {
   const now = new Date();
   const detailsJson = JSON.stringify(details);
@@ -157,6 +158,7 @@ export async function createWalletTransaction(
     signature,
     status,
     details: detailsJson,
+    signer: signer ?? null,
     createdAt: now,
   }).returning({ id: walletTransactions.id });
 

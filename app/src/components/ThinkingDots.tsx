@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
-import { DefiAIIcon } from './DefiAIIcon';
+import { useEffect, useRef } from "react";
+import { Animated, StyleSheet, View } from "react-native";
 
 interface ThinkingDotsProps {
   theme: any;
@@ -26,7 +25,7 @@ export function ThinkingDots({ theme }: ThinkingDotsProps) {
             duration: 400,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       );
     };
 
@@ -58,15 +57,32 @@ export function ThinkingDots({ theme }: ThinkingDotsProps) {
 
   return (
     <View style={styles.container}>
-      <DefiAIIcon size={32} />
       <View style={styles.dotsContainer}>
-        <Animated.Text style={[styles.dot, getDotStyle(dot1Anim), { color: theme.tintColor }]}>
+        <Animated.Text
+          style={[
+            styles.dot,
+            getDotStyle(dot1Anim),
+            { color: theme.tintColor },
+          ]}
+        >
           •
         </Animated.Text>
-        <Animated.Text style={[styles.dot, getDotStyle(dot2Anim), { color: theme.tintColor }]}>
+        <Animated.Text
+          style={[
+            styles.dot,
+            getDotStyle(dot2Anim),
+            { color: theme.tintColor },
+          ]}
+        >
           •
         </Animated.Text>
-        <Animated.Text style={[styles.dot, getDotStyle(dot3Anim), { color: theme.tintColor }]}>
+        <Animated.Text
+          style={[
+            styles.dot,
+            getDotStyle(dot3Anim),
+            { color: theme.tintColor },
+          ]}
+        >
           •
         </Animated.Text>
       </View>
@@ -76,20 +92,20 @@ export function ThinkingDots({ theme }: ThinkingDotsProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingLeft: 10,
   },
   dotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: 12,
     gap: 4,
   },
   dot: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     lineHeight: 24,
   },
 });
