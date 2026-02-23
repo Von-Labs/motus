@@ -17,6 +17,7 @@ import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { IMAGE_MODELS, MODELS } from "./constants";
+import { FEATURE_FLAGS } from "./src/constants/featureFlags";
 import {
   AppBackground,
   ChatModelModal,
@@ -204,7 +205,7 @@ export default function App() {
                       />
                     </BottomSheetView>
                   </BottomSheetModal>
-                  <TopUpBottomSheet />
+                  {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
                 </BottomSheetModalProvider>
               </ThemeContext.Provider>
             </AppContext.Provider>
@@ -264,7 +265,9 @@ function RootNavigator() {
               headerRight: () => <SettingsFormSheetHeaderRight />,
             }}
           />
-          <Stack.Screen name="HotWallet" component={HotWallet} />
+          {FEATURE_FLAGS.HOT_WALLET && (
+            <Stack.Screen name="HotWallet" component={HotWallet} />
+          )}
         </>
       )}
     </Stack.Navigator>

@@ -102,7 +102,7 @@ export function OnboardingScreen() {
   const { theme } = useContext(ThemeContext);
   const { setWalletAddress } = useContext(AppContext);
   const { account, connect } = useMobileWallet();
-  const { createHotWallet } = useHotWallet();
+  const { createHotWallet, isHotWalletFeatureEnabled } = useHotWallet();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -142,7 +142,11 @@ export function OnboardingScreen() {
   const handleConnectWallet = async () => {
     try {
       await connect();
-      setShowHotWalletOffer(true);
+      if (isHotWalletFeatureEnabled) {
+        setShowHotWalletOffer(true);
+      } else {
+        navigation.navigate("Main");
+      }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
     }

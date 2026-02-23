@@ -11,6 +11,7 @@ import { useContext } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { AppContext, ThemeContext } from '../context'
+import { useHotWallet } from '../context/HotWalletContext'
 import {
   AnthropicIcon
  } from '../components/index'
@@ -26,6 +27,7 @@ const models = [
 export function Settings() {
   const { theme } = useContext(ThemeContext)
   const { chatType, setChatType } = useContext(AppContext)
+  const { isHotWalletFeatureEnabled } = useHotWallet()
   const navigation = useNavigation<any>()
   const styles = getStyles(theme)
 
@@ -34,14 +36,16 @@ export function Settings() {
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
-      <TouchableOpacity
-        style={styles.menuRow}
-        onPress={() => navigation.navigate('HotWallet')}
-      >
-        <Ionicons name="flame-outline" size={22} color={theme.textColor} />
-        <Text style={styles.menuRowText}>Hot Wallet</Text>
-        <Ionicons name="chevron-forward" size={20} color={theme.mutedForegroundColor} />
-      </TouchableOpacity>
+      {isHotWalletFeatureEnabled && (
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => navigation.navigate('HotWallet')}
+        >
+          <Ionicons name="flame-outline" size={22} color={theme.textColor} />
+          <Text style={styles.menuRowText}>Hot Wallet</Text>
+          <Ionicons name="chevron-forward" size={20} color={theme.mutedForegroundColor} />
+        </TouchableOpacity>
+      )}
 
       <View style={styles.titleContainer}>
         <Text style={styles.mainText}>Chat Model</Text>

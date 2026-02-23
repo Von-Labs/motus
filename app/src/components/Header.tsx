@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { AppContext, ThemeContext } from "../../src/context";
+import { useHotWallet } from "../../src/context/HotWalletContext";
 import { MenuIcon } from "./MenuIcon";
 
 // Helper to format wallet address: 4 chars...4 chars
@@ -22,6 +23,7 @@ const formatWalletAddress = (address: string) => {
 export function Header() {
   const { theme } = useContext(ThemeContext);
   const { walletAddress, setWalletAddress } = useContext(AppContext);
+  const { isHotWalletFeatureEnabled } = useHotWallet();
   const { disconnect } = useMobileWallet();
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const navigation = useNavigation<any>();
@@ -56,13 +58,15 @@ export function Header() {
         </View>
 
         <View style={styles.rightContainer}>
-          <TouchableOpacity
-            style={styles.hotWalletButton}
-            onPress={() => navigation.getParent?.()?.navigate("HotWallet" as never)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="flame" size={18} color={theme.tintColor} />
-          </TouchableOpacity>
+          {isHotWalletFeatureEnabled && (
+            <TouchableOpacity
+              style={styles.hotWalletButton}
+              onPress={() => navigation.getParent?.()?.navigate("HotWallet" as never)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="flame" size={18} color={theme.tintColor} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 

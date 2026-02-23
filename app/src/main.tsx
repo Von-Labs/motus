@@ -8,6 +8,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { ThemeContext } from "./context";
+import { useHotWallet } from "./context/HotWalletContext";
 import type { BackgroundKey } from "./constants/background";
 
 /** Shared layout for drawer screens that use router navigation (Settings, Usage). */
@@ -35,13 +36,14 @@ export function DrawerScreenLayout({
 function MainComponent() {
   const insets = useSafeAreaInsets();
   const { theme } = useContext(ThemeContext);
+  const { isHotWalletFeatureEnabled } = useHotWallet();
   const styles = getStyles({ theme, insets });
 
   return (
     <AppBackground backgroundKey="default">
       <View style={styles.container}>
         <Header />
-        <HotWalletBanner />
+        {isHotWalletFeatureEnabled && <HotWalletBanner />}
         <Chat />
       </View>
     </AppBackground>

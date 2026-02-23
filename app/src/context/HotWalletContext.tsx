@@ -27,6 +27,7 @@ import {
   getPublicKeyString,
   getSecretKeyBase58,
 } from "../utils/hotWallet";
+import { isHotWalletEnabled } from "../constants/featureFlags";
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
@@ -36,6 +37,8 @@ const QUERY_KEYS = {
 };
 
 interface HotWalletContextType {
+  /** Whether the hot wallet feature is enabled (feature flag). */
+  isHotWalletFeatureEnabled: boolean;
   hotWallet: Keypair | null;
   publicKey: string | null;
   balance: number | null;
@@ -66,6 +69,7 @@ interface HotWalletContextType {
 }
 
 const HotWalletContext = createContext<HotWalletContextType>({
+  isHotWalletFeatureEnabled: false,
   hotWallet: null,
   publicKey: null,
   balance: null,
@@ -103,8 +107,9 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
 
   const publicKey = keypair ? getPublicKeyString(keypair) : null;
   const isHotWalletActive = keypair !== null;
+  const hotWalletEnabled = isHotWalletEnabled();
 
-  // Load keypair from SecureStore on mount
+  // Load keypair from SecureStore on mount (only when feature is on)
   const { isLoading } = useQuery({
     queryKey: QUERY_KEYS.keypair,
     queryFn: async () => {
@@ -114,6 +119,7 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
     },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    enabled: hotWalletEnabled,
   });
 
   // Poll balance every 15s while app is active
@@ -303,10 +309,11 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
   return (
     <HotWalletContext.Provider
       value={{
+        isHotWalletFeatureEnabled: hotWalletEnabled,
         hotWallet: keypair,
         publicKey,
         balance,
-        isLoading,
+        isLoading: hotWalletEnabled ? isLoading : false,
         isHotWalletActive,
 
         createHotWallet: () => createMutation.mutateAsync().then(() => {}),
