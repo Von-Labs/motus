@@ -1,4 +1,4 @@
-package com.anonymous.app.bluetooth
+package com.motus.app.bluetooth
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter

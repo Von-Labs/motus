@@ -42,7 +42,7 @@ export function ChatInput({
         <TextInput
           style={styles.input}
           onChangeText={onChangeText}
-          placeholder="Chat with Claude"
+          placeholder="Chat with Motus"
           placeholderTextColor={theme.placeholderTextColor}
           value={value}
           multiline

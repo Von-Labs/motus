@@ -14,14 +14,14 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vonlabs.motus"
+      "bundleIdentifier": "com.motus.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.vonlabs.motus"
+      "package": "com.motus.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

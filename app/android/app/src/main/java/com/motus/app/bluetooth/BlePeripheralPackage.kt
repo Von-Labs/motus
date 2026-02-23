@@ -1,4 +1,4 @@
-package com.anonymous.app.bluetooth
+package com.motus.app.bluetooth
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
