@@ -6,6 +6,7 @@ export const BACKGROUND_BY_SCREEN: Record<string, BackgroundKey> = {
   allChats: 'default',
   settings: 'soft',
   usage: 'soft',
+  hotWallet: 'warm',
   transactions: 'warm',
   transactionDetail: 'warm',
 }

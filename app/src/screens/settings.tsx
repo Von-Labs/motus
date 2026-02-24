@@ -3,11 +3,15 @@ import {
   Text,
   StyleSheet,
   TouchableHighlight,
+  TouchableOpacity,
   ScrollView,
   Alert
 } from 'react-native'
 import React, { useContext } from 'react'
+import { useNavigation } from '@react-navigation/native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { AppContext, ThemeContext } from '../context'
+import { useHotWallet } from '../context/HotWalletContext'
 import {
   AnthropicIcon,
   OpenAIIcon,
@@ -27,11 +31,9 @@ const models = [
 
 export function Settings() {
   const { theme } = useContext(ThemeContext)
-  const {
-    chatType,
-    setChatType,
-  } = useContext(AppContext)
-
+  const { chatType, setChatType } = useContext(AppContext)
+  const { isHotWalletFeatureEnabled } = useHotWallet()
+  const navigation = useNavigation<any>()
   const styles = getStyles(theme)
 
   return (
@@ -39,12 +41,19 @@ export function Settings() {
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
-      <View
-        style={styles.titleContainer}
-      >
-      <Text
-          style={styles.mainText}
-        >Chat Model</Text>
+      {isHotWalletFeatureEnabled && (
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => navigation.navigate('HotWallet')}
+        >
+          <Ionicons name="flame-outline" size={22} color={theme.textColor} />
+          <Text style={styles.menuRowText}>Hot Wallet</Text>
+          <Ionicons name="chevron-forward" size={20} color={theme.mutedForegroundColor} />
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.titleContainer}>
+        <Text style={styles.mainText}>Chat Model</Text>
       </View>
       <View style={styles.buttonContainer}>
         {
@@ -100,6 +109,20 @@ function getDynamicViewStyle(baseType:string, type:string, theme:any) {
 }
 
 const getStyles = (theme:any) => StyleSheet.create({
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+    gap: 12,
+  },
+  menuRowText: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: theme.semiBoldFont,
+    color: theme.textColor,
+  },
   buttonContainer: {
     marginBottom: 20
   },

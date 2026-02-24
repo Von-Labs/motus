@@ -17,17 +17,22 @@ import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { IMAGE_MODELS, MODELS } from "./constants";
+import { FEATURE_FLAGS } from "./src/constants/featureFlags";
 import {
   AppBackground,
   ChatModelModal,
   OnboardingScreen,
   Sidebar,
 } from "./src/components/index";
+import { TopUpBottomSheet } from "./src/components/hotWallet/TopUpBottomSheet";
 import { Drawer, Stack } from "./src/constants/navigation";
 import { AppContext, ThemeContext } from "./src/context";
+import { HotWalletProvider } from "./src/context/HotWalletContext";
+import { ProfileProvider } from "./src/context/ProfileContext";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
   Bluetooth,
+  HotWallet,
   Settings,
   SendToken,
   TransactionDetail,
@@ -153,57 +158,62 @@ export default function App() {
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <QueryClientProvider client={queryClient}>
-          <AppContext.Provider
-            value={{
-              chatType,
-              setChatType: _setChatType,
-              handlePresentModalPress,
-              imageModel,
-              setImageModel: _setImageModel,
-              closeModal,
-              walletAddress,
-              setWalletAddress,
-              sidebarOpen,
-              setSidebarOpen,
-              currentConversationId,
-              setCurrentConversationId,
-            }}
-          >
-            <ThemeContext.Provider
+          <HotWalletProvider>
+            <AppContext.Provider
               value={{
-                theme: getTheme(theme),
-                themeName: theme,
-                setTheme: _setTheme,
+                chatType,
+                setChatType: _setChatType,
+                handlePresentModalPress,
+                imageModel,
+                setImageModel: _setImageModel,
+                closeModal,
+                walletAddress,
+                setWalletAddress,
+                sidebarOpen,
+                setSidebarOpen,
+                currentConversationId,
+                setCurrentConversationId,
               }}
             >
-              <ActionSheetProvider>
-                <NavigationContainer>
-                  <RootNavigator />
-                </NavigationContainer>
-              </ActionSheetProvider>
-              <BottomSheetModalProvider>
-                <BottomSheetModal
-                  handleIndicatorStyle={bottomSheetStyles.handleIndicator}
-                  handleStyle={bottomSheetStyles.handle}
-                  backgroundStyle={bottomSheetStyles.background}
-                  ref={bottomSheetModalRef}
-                  enableDynamicSizing={true}
-                  backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
-                  )}
-                  enableDismissOnClose
-                  enablePanDownToClose
-                  onDismiss={() => setModalVisible(false)}
-                >
-                  <BottomSheetView>
-                    <ChatModelModal
-                      handlePresentModalPress={handlePresentModalPress}
-                    />
-                  </BottomSheetView>
-                </BottomSheetModal>
-              </BottomSheetModalProvider>
-            </ThemeContext.Provider>
-          </AppContext.Provider>
+              <ThemeContext.Provider
+                value={{
+                  theme: getTheme(theme),
+                  themeName: theme,
+                  setTheme: _setTheme,
+                }}
+              >
+                <ProfileProvider>
+                <ActionSheetProvider>
+                  <NavigationContainer>
+                    <RootNavigator />
+                  </NavigationContainer>
+                </ActionSheetProvider>
+                <BottomSheetModalProvider>
+                  <BottomSheetModal
+                    handleIndicatorStyle={bottomSheetStyles.handleIndicator}
+                    handleStyle={bottomSheetStyles.handle}
+                    backgroundStyle={bottomSheetStyles.background}
+                    ref={bottomSheetModalRef}
+                    enableDynamicSizing={true}
+                    backdropComponent={(props) => (
+                      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
+                    )}
+                    enableDismissOnClose
+                    enablePanDownToClose
+                    onDismiss={() => setModalVisible(false)}
+                  >
+                    <BottomSheetView>
+                      <ChatModelModal
+                        handlePresentModalPress={handlePresentModalPress}
+                      />
+                    </BottomSheetView>
+                  </BottomSheetModal>
+                  {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
+                </BottomSheetModalProvider>
+                </ProfileProvider>
+              </ThemeContext.Provider>
+            </AppContext.Provider>
+          </HotWalletProvider>
         </QueryClientProvider>
       </GestureHandlerRootView>
     </View>
@@ -259,6 +269,9 @@ function RootNavigator() {
               headerRight: () => <SettingsFormSheetHeaderRight />,
             }}
           />
+          {FEATURE_FLAGS.HOT_WALLET && (
+            <Stack.Screen name="HotWallet" component={HotWallet} />
+          )}
         </>
       )}
     </Stack.Navigator>

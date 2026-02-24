@@ -158,7 +158,8 @@ export async function createWalletTransaction(
     | 'drift_other',
   signature: string,
   status: 'success' | 'failed',
-  details: any
+  details: any,
+  signer?: 'hot_wallet' | 'main_wallet'
 ): Promise<number> {
   const now = new Date();
   const detailsJson = JSON.stringify(details);
@@ -168,6 +169,7 @@ export async function createWalletTransaction(
     signature,
     status,
     details: detailsJson,
+    signer: signer ?? null,
     createdAt: now,
   }).returning({ id: walletTransactions.id });
 

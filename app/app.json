@@ -14,18 +14,29 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vonlabs.motus"
+      "bundleIdentifier": "com.motus.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.vonlabs.motus"
+      "package": "com.motus.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-font", "expo-sqlite"]
+    "plugins": [
+      "expo-font",
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use your Face ID biometric data for protecting your wallet."
+        }
+      ]
+    ]
   }
 }

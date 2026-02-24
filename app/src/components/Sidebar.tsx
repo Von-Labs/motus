@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { useContext, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
+import { useHotWallet } from "../context/HotWalletContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMobileWallet } from "@wallet-ui/react-native-web3js";
 import { getRecentConversations, Conversation } from "../utils/database";
@@ -13,6 +14,7 @@ export function Sidebar(props: DrawerContentComponentProps) {
   const { theme } = useContext(ThemeContext);
   const { walletAddress, setWalletAddress, setCurrentConversationId } =
     useContext(AppContext);
+  const { isHotWalletFeatureEnabled } = useHotWallet();
   const { disconnect } = useMobileWallet();
   const styles = getStyles(theme);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
@@ -128,6 +130,23 @@ export function Sidebar(props: DrawerContentComponentProps) {
             />
             <Text style={styles.menuText}>Usage & Billing</Text>
           </TouchableOpacity>
+
+          {isHotWalletFeatureEnabled && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                props.navigation.closeDrawer();
+                (props.navigation.getParent() as any)?.navigate("HotWallet");
+              }}
+            >
+              <Ionicons
+                name="flame-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>Hot Wallet</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.menuItem}

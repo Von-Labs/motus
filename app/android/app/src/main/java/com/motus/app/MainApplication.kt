@@ -1,4 +1,4 @@
-package com.anonymous.app
+package com.motus.app
 
 import android.app.Application
 import android.content.res.Configuration
@@ -14,7 +14,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 
 import expo.modules.ApplicationLifecycleDispatcher
-import com.anonymous.app.bluetooth.BlePeripheralPackage
+import com.motus.app.bluetooth.BlePeripheralPackage
 import expo.modules.ReactNativeHostWrapper
 
 class MainApplication : Application(), ReactApplication {

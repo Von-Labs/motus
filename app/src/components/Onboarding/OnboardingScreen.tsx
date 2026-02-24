@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useContext, useEffect, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   ScrollView,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext, ThemeContext } from "../../context";
+import { useHotWallet } from "../../context/HotWalletContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -100,17 +102,19 @@ export function OnboardingScreen() {
   const { theme } = useContext(ThemeContext);
   const { setWalletAddress } = useContext(AppContext);
   const { account, connect } = useMobileWallet();
+  const { createHotWallet, isHotWalletFeatureEnabled } = useHotWallet();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showHotWalletOffer, setShowHotWalletOffer] = useState(false);
+  const [creatingHotWallet, setCreatingHotWallet] = useState(false);
   const buttonScale = useRef(new Animated.Value(1)).current;
   const dotWidths = useRef(
     PAGES.map((_, i) => new Animated.Value(i === 0 ? 1 : 0)),
   ).current;
   const styles = getStyles(theme, insets);
 
-  // Update wallet address when connected
   useEffect(() => {
     if (account) {
       setWalletAddress(account.address.toString());
@@ -138,10 +142,29 @@ export function OnboardingScreen() {
   const handleConnectWallet = async () => {
     try {
       await connect();
-      // Navigate explicitly to Main after successful connection
-      navigation.navigate("Main");
+      if (isHotWalletFeatureEnabled) {
+        setShowHotWalletOffer(true);
+      } else {
+        navigation.navigate("Main");
+      }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
+    }
+  };
+
+  const handleSkipHotWallet = () => {
+    navigation.navigate("Main");
+  };
+
+  const handleCreateHotWallet = async () => {
+    setCreatingHotWallet(true);
+    try {
+      await createHotWallet();
+      navigation.navigate("Main");
+    } catch (error) {
+      console.error("Failed to create hot wallet:", error);
+    } finally {
+      setCreatingHotWallet(false);
     }
   };
 
@@ -177,6 +200,40 @@ export function OnboardingScreen() {
   };
 
   const isLast = currentIndex === PAGES.length - 1;
+
+  if (showHotWalletOffer) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.gradient, { justifyContent: "center" }]}>
+          <Text style={styles.icon}>🔥</Text>
+          <Text style={styles.subtitle}>Optional</Text>
+          <Text style={styles.title}>Create a hot wallet?</Text>
+          <Text style={styles.body}>
+            Use a small in-app wallet for one-tap swaps and transfers. You can
+            fund it from your main wallet anytime.
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { marginTop: 24 }]}
+            onPress={handleCreateHotWallet}
+            disabled={creatingHotWallet}
+          >
+            {creatingHotWallet ? (
+              <ActivityIndicator color={theme.tintTextColor} />
+            ) : (
+              <Text style={styles.buttonText}>Create hot wallet</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={handleSkipHotWallet}
+            disabled={creatingHotWallet}
+          >
+            <Text style={styles.skipButtonText}>Skip for now</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -344,5 +401,15 @@ const getStyles = (theme: any, insets: { top: number; bottom: number }) =>
       color: theme.tintTextColor,
       letterSpacing: 1,
       textTransform: "uppercase",
+    },
+    skipButton: {
+      marginTop: 16,
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    skipButtonText: {
+      fontSize: 16,
+      fontFamily: theme.regularFont,
+      color: theme.mutedForegroundColor,
     },
   });

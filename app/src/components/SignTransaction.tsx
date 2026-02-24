@@ -1,8 +1,8 @@
 import { useMobileWallet } from "@wallet-ui/react-native-web3js";
-import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { Button, Text, View, ActivityIndicator, StyleSheet } from "react-native";
 import { useState } from "react";
-import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { useHotWallet } from "../context/HotWalletContext";
+import { signAndSendTransactionFromBase64 } from "../utils/transactionSigner";
 
 // Get API URL from environment
 const API_URL = process.env.EXPO_PUBLIC_ENV === "DEVELOPMENT"
@@ -11,16 +11,27 @@ const API_URL = process.env.EXPO_PUBLIC_ENV === "DEVELOPMENT"
 
 export function SignTransaction() {
   const { account } = useMobileWallet();
+  const {
+    isHotWalletActive,
+    signAndSendTransaction,
+    requireBalance,
+    publicKey: hotWalletPublicKey,
+  } = useHotWallet();
   const [loading, setLoading] = useState(false);
   const [txSignature, setTxSignature] = useState<string>();
   const [error, setError] = useState<string>();
+
+  const signerPublicKey =
+    isHotWalletActive && hotWalletPublicKey
+      ? hotWalletPublicKey
+      : account?.address.toString();
 
   /**
    * Test swap: 0.001 SOL to USDC
    */
   const handleSwap = async () => {
-    if (!account) {
-      setError("Please connect wallet first");
+    if (!signerPublicKey) {
+      setError("Please connect wallet or create a hot wallet first");
       return;
     }
 
@@ -31,14 +42,13 @@ export function SignTransaction() {
 
       console.log("1. Getting swap quote from backend...");
 
-      // Step 1: Get quote with unsigned transaction from backend
       const quoteResponse = await fetch(`${API_URL}/api/jupiter/quote`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userPublicKey: account.address.toString(),
+          userPublicKey: signerPublicKey,
           inputMint: "So11111111111111111111111111111111111111112", // SOL
           outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
           amount: 1000000, // 0.001 SOL (in lamports)
@@ -52,58 +62,26 @@ export function SignTransaction() {
       }
 
       const quoteData = await quoteResponse.json();
-      console.log("2. Quote received:", quoteData);
-
-      if (!quoteData.quote) {
-        throw new Error("No quote returned from backend");
+      if (!quoteData.quote?.transaction) {
+        throw new Error("No transaction in quote.");
       }
 
-      if (!quoteData.quote.transaction) {
-        throw new Error("No transaction in quote. Make sure userPublicKey is provided.");
-      }
+      const { signature } = await signAndSendTransactionFromBase64(
+        quoteData.quote.transaction,
+        {
+          cluster: "mainnet-beta",
+          hotWallet: isHotWalletActive
+            ? {
+                useHotWallet: true,
+                signAndSendTransaction,
+                requireBalance,
+              }
+            : null,
+        },
+      );
 
-      // Step 2: Sign and send transaction with wallet using transact API
-      console.log("3. Asking wallet to sign and send transaction...");
-      console.log("Transaction data:", quoteData.quote.transaction.slice(0, 50) + "...");
-
-      // Use Solana Mobile Wallet Adapter to sign and send transaction
-      const signatures = await transact(async (wallet: any) => {
-        // Authorize the wallet first
-        await wallet.authorize({
-          cluster: 'mainnet-beta',
-          identity: { name: 'Solana DeFi Agent' },
-        });
-
-        // Deserialize the transaction from the quote
-        // Jupiter returns VersionedTransaction (v0 transactions)
-        const transactionBuffer = Buffer.from(quoteData.quote.transaction, 'base64');
-        const uint8Array = new Uint8Array(transactionBuffer);
-
-        // Try to deserialize as VersionedTransaction first (Jupiter uses v0 transactions)
-        let transaction: Transaction | VersionedTransaction;
-        try {
-          transaction = VersionedTransaction.deserialize(uint8Array);
-          console.log("Deserialized as VersionedTransaction");
-        } catch (e) {
-          // Fallback to legacy Transaction
-          transaction = Transaction.from(transactionBuffer);
-          console.log("Deserialized as legacy Transaction");
-        }
-
-        // Sign and send the transaction
-        const txSignatures = await wallet.signAndSendTransactions({
-          transactions: [transaction],
-        });
-
-        return txSignatures;
-      });
-
-      const txSignature = signatures[0];
-
-      console.log("4. Transaction sent successfully!");
-      setTxSignature(txSignature);
-      console.log(`View on Solscan: https://solscan.io/tx/${txSignature}`);
-
+      setTxSignature(signature);
+      console.log(`View on Solscan: https://solscan.io/tx/${signature}`);
     } catch (err: any) {
       console.error("Swap failed:", err);
       setError(err.message || "Swap failed");
@@ -112,7 +90,7 @@ export function SignTransaction() {
     }
   };
 
-  if (!account) {
+  if (!account && !isHotWalletActive) {
     return null;
   }
 

@@ -11,6 +11,7 @@ import "react-native-get-random-values";
 import { v4 as uuid } from "uuid";
 import { ChatInput, ChatMessageList } from "../components";
 import { AppContext, ThemeContext } from "../context";
+import { useHotWallet } from "../context/HotWalletContext";
 import { getChatType, getEventSource, getFirstNCharsOrLess } from "../utils";
 import {
   BLE_PROTOCOL_MESSAGE,
@@ -77,7 +78,23 @@ export function Chat() {
     currentConversationId,
     setCurrentConversationId,
   } = useContext(AppContext);
+  const {
+    isHotWalletActive,
+    signAndSendTransaction,
+    requireBalance,
+  } = useHotWallet();
   const layoutStyles = getChatStyles(theme);
+
+  const swapHandlerOptions = {
+    hotWallet: isHotWalletActive
+      ? {
+          useHotWallet: true,
+          signAndSendTransaction,
+          requireBalance,
+        }
+      : null,
+    cluster: "mainnet-beta",
+  };
 
   // Load conversation when currentConversationId changes
   useEffect(() => {
@@ -464,7 +481,7 @@ Always confirm the wallet address before performing any transactions.`;
                 setPendingSwap(data.result);
 
                 // Auto-execute swap transaction
-                handleSwapTransaction(data.result)
+                handleSwapTransaction(data.result, swapHandlerOptions)
                   .then((signature) => {
                     console.log("Swap executed:", signature);
                     localResponse =
@@ -515,7 +532,7 @@ Always confirm the wallet address before performing any transactions.`;
                   "\n\n";
 
                 // Auto-execute trigger order transaction
-                handleTriggerTransaction(data.result)
+                handleTriggerTransaction(data.result, swapHandlerOptions)
                   .then((signature) => {
                     console.log("Trigger order created:", signature);
                     localResponse =
@@ -563,7 +580,7 @@ Always confirm the wallet address before performing any transactions.`;
                   "\n\n";
 
                 // Auto-execute cancel transaction
-                handleTriggerTransaction(data.result)
+                handleTriggerTransaction(data.result, swapHandlerOptions)
                   .then((signature) => {
                     console.log("Order cancelled:", signature);
                     localResponse =

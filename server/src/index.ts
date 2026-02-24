@@ -4,6 +4,8 @@ import imagesRouter from './images/imagesRouter'
 import jupiterSwapRouter from './jupiter/swapRouter'
 import { sendRouter } from './sends'
 import userRouter from './user/userRouter'
+import tapestryRouter from './services/tapestry/tapestryRouter'
+import hotWalletRouter from './hotwallet/hotWalletRouter'
 import bodyParser from 'body-parser'
 
 // Debug: Check if env vars are loaded
@@ -29,6 +31,8 @@ app.use('/images', imagesRouter)
 app.use('/api/jupiter', jupiterSwapRouter)
 app.use('/api/sends', sendRouter)
 app.use('/api/user', userRouter)
+app.use('/api/tapestry', tapestryRouter)
+app.use('/api/hotwallet', hotWalletRouter)
 
 app.listen(3050, () => {
   console.log('Server started on port 3050')

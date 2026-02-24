@@ -10,10 +10,10 @@ import {
   TextInput,
   Alert,
 } from 'react-native'
-import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js'
-import { Transaction, VersionedTransaction } from '@solana/web3.js'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { ThemeContext, AppContext } from '../context'
+import { useHotWallet } from '../context/HotWalletContext'
+import { signAndSendTransactionFromBase64 } from '../utils/transactionSigner'
 import { DOMAIN } from '../../constants'
 
 const MIN_DEPOSIT = 5
@@ -52,7 +52,18 @@ interface UsageRecord {
 export function Usage() {
   const { theme } = useContext(ThemeContext)
   const { walletAddress } = useContext(AppContext)
+  const {
+    isHotWalletActive,
+    publicKey: hotWalletPublicKey,
+    signAndSendTransaction,
+    requireBalance,
+  } = useHotWallet()
   const styles = getStyles(theme)
+
+  const depositWalletAddress =
+    isHotWalletActive && hotWalletPublicKey
+      ? hotWalletPublicKey
+      : walletAddress
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -66,14 +77,19 @@ export function Usage() {
   const [showDeposit, setShowDeposit] = useState(false)
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (depositWalletAddress) {
+      fetchData()
+    } else {
+      setLoading(false)
+      setError('No wallet connected')
+    }
+  }, [depositWalletAddress])
 
   const fetchData = async () => {
     try {
       setError(null)
 
-      if (!walletAddress) {
+      if (!depositWalletAddress) {
         setError('No wallet connected')
         setLoading(false)
         return
@@ -81,10 +97,10 @@ export function Usage() {
 
       const [statsResponse, usageResponse] = await Promise.all([
         fetch(`${DOMAIN}/api/user/stats`, {
-          headers: { 'X-Wallet-Address': walletAddress },
+          headers: { 'X-Wallet-Address': depositWalletAddress },
         }),
         fetch(`${DOMAIN}/api/user/usage?limit=50`, {
-          headers: { 'X-Wallet-Address': walletAddress },
+          headers: { 'X-Wallet-Address': depositWalletAddress },
         }),
       ])
 
@@ -115,7 +131,7 @@ export function Usage() {
    * 3. Call server /deposit with signature → verify on-chain & credit balance
    */
   const handleDeposit = async () => {
-    if (!walletAddress) {
+    if (!depositWalletAddress) {
       Alert.alert('Error', 'No wallet connected')
       return
     }
@@ -128,12 +144,11 @@ export function Usage() {
 
     setDepositing(true)
     try {
-      // Step 1: Ask server to build the unsigned USDC transfer tx
       const prepareRes = await fetch(`${DOMAIN}/api/user/deposit/prepare`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Wallet-Address': walletAddress,
+          'X-Wallet-Address': depositWalletAddress,
         },
         body: JSON.stringify({ amount }),
       })
@@ -145,34 +160,25 @@ export function Usage() {
 
       const { transaction: txBase64 } = await prepareRes.json()
 
-      // Step 2: Sign & send via MWA (same pattern as swapHandler.ts)
-      const signatures = await transact(async (wallet: any) => {
-        await wallet.authorize({
+      const { signature: txSignature } = await signAndSendTransactionFromBase64(
+        txBase64,
+        {
           cluster: 'mainnet-beta',
-          identity: { name: 'Motus', uri: 'https://motus.app' },
-        })
+          hotWallet: isHotWalletActive
+            ? {
+                useHotWallet: true,
+                signAndSendTransaction,
+                requireBalance,
+              }
+            : null,
+        },
+      )
 
-        const transactionBuffer = Buffer.from(txBase64, 'base64')
-        const uint8Array = new Uint8Array(transactionBuffer)
-
-        let tx: Transaction | VersionedTransaction
-        try {
-          tx = VersionedTransaction.deserialize(uint8Array)
-        } catch {
-          tx = Transaction.from(transactionBuffer)
-        }
-
-        return wallet.signAndSendTransactions({ transactions: [tx] })
-      })
-
-      const txSignature: string = signatures[0]
-
-      // Step 3: Verify on-chain and credit balance
       const verifyRes = await fetch(`${DOMAIN}/api/user/deposit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Wallet-Address': walletAddress,
+          'X-Wallet-Address': depositWalletAddress,
         },
         body: JSON.stringify({ signature: txSignature }),
       })
