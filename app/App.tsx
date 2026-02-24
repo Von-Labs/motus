@@ -28,6 +28,7 @@ import { TopUpBottomSheet } from "./src/components/hotWallet/TopUpBottomSheet";
 import { Drawer, Stack } from "./src/constants/navigation";
 import { AppContext, ThemeContext } from "./src/context";
 import { HotWalletProvider } from "./src/context/HotWalletContext";
+import { ProfileProvider } from "./src/context/ProfileContext";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
   Bluetooth,
@@ -180,6 +181,7 @@ export default function App() {
                   setTheme: _setTheme,
                 }}
               >
+                <ProfileProvider>
                 <ActionSheetProvider>
                   <NavigationContainer>
                     <RootNavigator />
@@ -207,6 +209,7 @@ export default function App() {
                   </BottomSheetModal>
                   {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
                 </BottomSheetModalProvider>
+                </ProfileProvider>
               </ThemeContext.Provider>
             </AppContext.Provider>
           </HotWalletProvider>
