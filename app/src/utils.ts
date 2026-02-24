@@ -6,12 +6,12 @@ export function getEventSource({
   headers,
   body,
   type,
-  walletAddress
+  walletAddress,
 } : {
   headers?: any,
   body: any,
   type: string,
-  walletAddress?: string | null
+  walletAddress?: string | null,
 }) {
   const es = new EventSource(`${DOMAIN}/chat/${type}`, {
     headers: {

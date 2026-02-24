@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
 import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
 import { driftTools, handleToolCall as handleDriftToolCall } from '../drift'
+import { tapestryTools, handleToolCall as handleTapestryToolCall } from '../services/tapestry'
 import { db } from '../db/supabase'
 
 type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
@@ -83,6 +84,14 @@ Jupiter Tools (Spot Trading):
 - Create DCA (Dollar-Cost Averaging) strategies
 - Check token security
 
+Tapestry Social Tools (Social Features):
+- Create social posts with text and images
+- Browse the social feed
+- View post details with engagement stats
+- Comment on posts
+- Like/unlike posts
+- Look up user profiles by wallet address
+
 Drift Protocol Tools (Perpetual Futures Trading):
 - Open LONG positions (bullish bets, profit when price rises)
 - Open SHORT positions (bearish bets, profit when price falls)
@@ -131,6 +140,15 @@ Token Decimals (important for calculations):
 - USDT: 6 decimals
 - JUP: 6 decimals
 
+Tapestry Social Tools Guide:
+- Use 'get_tapestry_profile' to find a user's profile by wallet address (needed for other social actions)
+- Use 'create_social_post' to post content (requires profileId from get_tapestry_profile)
+- Use 'get_social_feed' to browse posts, optionally filtered by author
+- Use 'get_post_details' to see a specific post with engagement
+- Use 'comment_on_post' to add a comment on a post
+- Use 'like_post' / 'unlike_post' to toggle likes on posts
+- Always look up the user's profile first before creating posts or comments
+
 Always ask for wallet address when needed. Be helpful and educational about DeFi concepts.`
 
       // Start conversation loop with tool support
@@ -152,7 +170,7 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             messages: conversationMessages,
             max_tokens: 4096,
             system: systemPrompt || defaultSystemPrompt,
-            tools: [...jupiterTools, ...driftTools]
+            tools: [...jupiterTools, ...driftTools, ...tapestryTools]
           })
         })
 
@@ -205,9 +223,15 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
 
             // Execute the tool - route to correct handler based on tool name
             const isDriftTool = driftTools.some(tool => tool.name === toolUse.name)
-            const toolResult = isDriftTool
-              ? await handleDriftToolCall(toolUse.name, toolUse.input)
-              : await handleJupiterToolCall(toolUse.name, toolUse.input)
+            const isTapestryTool = tapestryTools.some(tool => tool.name === toolUse.name)
+            let toolResult
+            if (isDriftTool) {
+              toolResult = await handleDriftToolCall(toolUse.name, toolUse.input)
+            } else if (isTapestryTool) {
+              toolResult = await handleTapestryToolCall(toolUse.name, toolUse.input)
+            } else {
+              toolResult = await handleJupiterToolCall(toolUse.name, toolUse.input)
+            }
 
             toolResults.push({
               type: 'tool_result',
