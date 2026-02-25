@@ -1,19 +1,22 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image, View } from "react-native";
+import { getAvatarUrl } from "../../utils/avatar";
 
 export function MiniAvatar({
-  uri,
+  seed,
   theme,
   size = 20,
 }: {
-  uri?: string | null;
+  seed?: string | null;
   theme: any;
   size?: number;
 }) {
-  if (uri) {
+  const imageUri = getAvatarUrl(seed);
+
+  if (imageUri) {
     return (
       <Image
-        source={{ uri }}
+        source={{ uri: imageUri }}
         style={{
           width: size,
           height: size,

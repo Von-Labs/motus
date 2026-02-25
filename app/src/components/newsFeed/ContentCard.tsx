@@ -92,7 +92,7 @@ export function ContentCard({
       {/* Author header */}
       <View style={styles.cardHeader}>
         <View style={styles.authorRow}>
-          <MiniAvatar uri={author?.image} theme={theme} size={38} />
+          <MiniAvatar seed={author?.username} theme={theme} size={38} />
           <View style={styles.authorInfo}>
             <View style={styles.authorNameRow}>
               <Text style={styles.authorName} numberOfLines={1}>

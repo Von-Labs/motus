@@ -31,7 +31,7 @@ export function CommentsSection({
       </View>
       {comments.slice(0, 3).map((c) => (
         <View key={c.comment.id} style={styles.commentRow}>
-          <MiniAvatar uri={c.author?.image} theme={theme} size={24} />
+          <MiniAvatar seed={c.author?.username} theme={theme} size={24} />
           <View style={styles.commentContent}>
             <Text style={styles.commentAuthor}>
               {truncateAddress(c.author?.username)}
