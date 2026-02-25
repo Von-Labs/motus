@@ -7,14 +7,13 @@ export function ConnectWallet() {
   const { account, connect, disconnect } = useMobileWallet();
   const { setWalletAddress } = useContext(AppContext);
 
-  // Update context when wallet connects/disconnects
   useEffect(() => {
     if (account) {
       setWalletAddress(account.address.toString());
     } else {
       setWalletAddress(null);
     }
-  }, [account, setWalletAddress]);
+  }, [account]);
 
   if (account) {
     return (

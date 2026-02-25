@@ -1,8 +1,29 @@
 import express from 'express'
 import asyncHandler from 'express-async-handler'
 import { TapestryService } from './tapestryService'
+import { executePendingAction } from './toolHandler'
 
 const router = express.Router()
+
+// ─── Execute (wallet-signed write actions from chat) ──────
+
+router.post('/execute', asyncHandler(async (req, res) => {
+  const { action, payload } = req.body
+  const walletAddress = req.headers['x-wallet-address'] as string
+  const walletSignature = req.headers['x-wallet-signature'] as string
+
+  if (!action || !payload) {
+    res.status(400).json({ error: 'Missing required fields: action, payload' })
+    return
+  }
+  if (!walletAddress || !walletSignature) {
+    res.status(401).json({ error: 'Missing wallet address or signature headers' })
+    return
+  }
+
+  const result = await executePendingAction(action, payload, walletAddress, walletSignature)
+  res.json(result)
+}))
 
 // ─── Profiles ──────────────────────────────────────────────
 

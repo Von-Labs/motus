@@ -1,4 +1,5 @@
 import { useActionSheet } from "@expo/react-native-action-sheet";
+import { useMobileWallet } from "@wallet-ui/react-native-web3js";
 import * as Clipboard from "expo-clipboard";
 import { useContext, useEffect, useRef, useState } from "react";
 import {
@@ -31,6 +32,11 @@ import {
   isSwapTransaction,
   isTriggerOrderTransaction,
 } from "../utils/swapHandler";
+import {
+  formatTapestryActionDetails,
+  handleTapestryAction,
+  isTapestryPendingAction,
+} from "../utils/tapestryHandler";
 import type { ChatState } from "./chat/types";
 import { createEmptyChatState } from "./chat/types";
 import { getChatStyles } from "./chat/chat.styles";
@@ -83,6 +89,7 @@ export function Chat() {
     signAndSendTransaction,
     requireBalance,
   } = useHotWallet();
+  const { signMessage } = useMobileWallet();
   const layoutStyles = getChatStyles(theme);
 
   const swapHandlerOptions = {
@@ -602,6 +609,46 @@ Always confirm the wallet address before performing any transactions.`;
                       `❌ **Cancellation failed:** ${error.message}\n\n`;
 
                     // Update message with error
+                    messageArray[messageArray.length - 1].assistant =
+                      localResponse;
+                    updateChatState(modelLabel, (prev) => ({
+                      ...prev,
+                      messages: JSON.parse(JSON.stringify(messageArray)),
+                    }));
+                  });
+              }
+
+              // Check if this is a tapestry write action requiring wallet sign
+              if (isTapestryPendingAction(data.result) && walletAddress) {
+                console.log(
+                  "Tapestry pending action detected, prompting wallet sign...",
+                );
+
+                localResponse =
+                  localResponse +
+                  formatTapestryActionDetails(data.result) +
+                  "\n\n";
+
+                handleTapestryAction(data.result, walletAddress, { signMessage })
+                  .then((result) => {
+                    console.log("Tapestry action executed:", result);
+                    localResponse =
+                      localResponse +
+                      `✅ **${result.message || "Action completed!"}**\n\n`;
+
+                    messageArray[messageArray.length - 1].assistant =
+                      localResponse;
+                    updateChatState(modelLabel, (prev) => ({
+                      ...prev,
+                      messages: JSON.parse(JSON.stringify(messageArray)),
+                    }));
+                  })
+                  .catch((error) => {
+                    console.error("Tapestry action failed:", error);
+                    localResponse =
+                      localResponse +
+                      `❌ **Action failed:** ${error.message}\n\n`;
+
                     messageArray[messageArray.length - 1].assistant =
                       localResponse;
                     updateChatState(modelLabel, (prev) => ({

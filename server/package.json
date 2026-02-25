@@ -29,6 +29,7 @@
     "@types/node": "^20.8.10",
     "axios": "^1.13.5",
     "body-parser": "^1.20.2",
+    "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "eventsource": "^2.0.2",
@@ -39,6 +40,7 @@
     "socialfi": "^0.1.14",
     "stream": "^0.0.2",
     "ts-node-dev": "^2.0.0",
+    "tweetnacl": "^1.0.3",
     "typescript": "^5.2.2"
   },
   "devDependencies": {
