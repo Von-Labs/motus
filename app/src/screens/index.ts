@@ -6,3 +6,4 @@ export { TransactionHistory } from "./transactionHistory";
 export { TransactionDetail } from "./transactionDetail";
 export { Usage } from "./usage";
 export { HotWallet } from "./hotWallet";
+export { NewsFeed } from "./newsFeed";
