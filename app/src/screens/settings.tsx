@@ -7,14 +7,16 @@ import {
   ScrollView,
   Alert
 } from 'react-native'
-import { useContext } from 'react'
+import React, { useContext } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { AppContext, ThemeContext } from '../context'
 import { useHotWallet } from '../context/HotWalletContext'
 import {
-  AnthropicIcon
- } from '../components/index'
+  AnthropicIcon,
+  OpenAIIcon,
+  GeminiIcon
+} from '../components/index'
 import { MODELS } from '../../constants'
 import { debugDatabase } from '../utils/database'
 
@@ -65,11 +67,11 @@ export function Settings() {
                   style={{...styles.chatChoiceButton, ...getDynamicViewStyle(chatType.label, model.label, theme)}}
                 >
                 <View style={{marginRight: 8}}>
-                  <AnthropicIcon
-                    theme={theme}
-                    size={18}
-                    selected={chatType.label === model.label}
-                  />
+                  {React.createElement(model.icon, {
+                    theme,
+                    size: 18,
+                    selected: chatType.label === model.label
+                  })}
                 </View>
                 <Text
                   style={{...styles.chatTypeText, ...getDynamicTextStyle(chatType.label, model.label, theme)}}

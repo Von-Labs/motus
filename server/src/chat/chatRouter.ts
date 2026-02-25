@@ -1,16 +1,62 @@
 import express from 'express'
+import asyncHandler from 'express-async-handler'
 import { claude } from './claude'
 import { claudeWithTools } from './claudeWithTools'
 import { gpt } from './gpt'
 import { gemini } from './gemini'
 import { JupiterService } from '../jupiter/jupiterService'
-import { checkBalance } from '../middleware/trackUsage'
+import { checkBalance, manualTrackUsage } from '../middleware/trackUsage'
 
 const router = express.Router()
 
 // Claude endpoints with balance check
 router.post('/claude', checkBalance, claude)
 router.post('/claude-tools', checkBalance, claudeWithTools)
+
+// Summarize endpoint for share-to-social (with balance check)
+router.post('/summarize', checkBalance, asyncHandler(async (req, res) => {
+  const { text } = req.body
+  const walletAddress = req.headers['x-wallet-address'] as string
+
+  if (!text) {
+    res.status(400).json({ error: 'Missing required field: text' })
+    return
+  }
+
+  const model = 'claude-haiku-4-5-20251001'
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 280,
+      messages: [{ role: 'user', content: `Summarize this AI assistant response into a short, engaging social media post (max 280 chars). Keep it informative and concise. Do not use hashtags. Only return the summary text, nothing else.\n\nResponse:\n${text}` }]
+    })
+  })
+
+  const data = await response.json() as any
+  const summary = data.content?.[0]?.text || text.slice(0, 280)
+
+  // Track usage
+  const inputTokens = data.usage?.input_tokens || 0
+  const outputTokens = data.usage?.output_tokens || 0
+  if (walletAddress && inputTokens > 0) {
+    manualTrackUsage({
+      walletAddress,
+      model,
+      requestType: 'summarize',
+      inputTokens,
+      outputTokens,
+      endpoint: '/chat/summarize'
+    }).catch(err => console.error('Failed to track summarize usage:', err))
+  }
+
+  res.json({ summary })
+}))
 
 // Other endpoints without balance check (for now)
 router.post('/gpt', gpt)

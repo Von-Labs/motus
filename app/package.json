@@ -60,6 +60,7 @@
     "@babel/core": "^7.24.0",
     "@types/react": "~19.1.10",
     "@types/uuid": "^9.0.7",
+    "babel-preset-expo": "^54.0.10",
     "drizzle-kit": "^0.31.9",
     "prettier": "^3.8.1",
     "typescript": "~5.8.3"

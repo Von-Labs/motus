@@ -1,8 +1,29 @@
 import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
 import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
-import { driftTools, handleToolCall as handleDriftToolCall } from '../drift'
+import { sendTools, handleToolCall as handleSendToolCall } from '../sends'
+import { tapestryTools, handleToolCall as handleTapestryToolCall } from '../services/tapestry'
 import { db } from '../db/supabase'
+
+// Lazy-load Drift to avoid crashing on Windows when yellowstone-grpc native binding is missing
+let _driftModule: { driftTools: any[]; handleToolCall: (name: string, input: any) => Promise<any> } | null | undefined = undefined
+function getDriftModule () {
+  if (_driftModule !== undefined) return _driftModule
+  try {
+    _driftModule = require('../drift')
+    return _driftModule
+  } catch (e) {
+    console.warn('Drift module not available (native binding may be missing on this platform):', (e as Error)?.message)
+    _driftModule = null
+    return null
+  }
+}
+function getDriftTools () { return getDriftModule()?.driftTools ?? [] }
+async function handleDriftToolCall (name: string, input: any) {
+  const mod = getDriftModule()
+  if (!mod) return { error: 'Drift Protocol is not available on this server (native dependencies missing).' }
+  return mod.handleToolCall(name, input)
+}
 
 type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
 type ModelName =
@@ -83,6 +104,18 @@ Jupiter Tools (Spot Trading):
 - Create DCA (Dollar-Cost Averaging) strategies
 - Check token security
 
+Send Tools (Token Transfers):
+- Send SOL or SPL tokens to any wallet address
+- Supports native SOL and all SPL tokens (USDC, USDT, BONK, JUP, etc.)
+
+Tapestry Social Tools (Social Features):
+- Create social posts with text and images
+- Browse the social feed
+- View post details with engagement stats
+- Comment on posts
+- Like/unlike posts
+- Look up user profiles by wallet address
+
 Drift Protocol Tools (Perpetual Futures Trading):
 - Open LONG positions (bullish bets, profit when price rises)
 - Open SHORT positions (bearish bets, profit when price falls)
@@ -131,6 +164,22 @@ Token Decimals (important for calculations):
 - USDT: 6 decimals
 - JUP: 6 decimals
 
+Send Tools Guide:
+- Use 'send_tokens' to transfer SOL or SPL tokens to another wallet
+- For SOL: omit mint, amount in lamports (1 SOL = 1000000000)
+- For SPL: provide mint address and decimals (e.g. USDC: mint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, decimals=6, 1 USDC = 1000000)
+- The sender field should be the user's wallet address
+- Returns an unsigned transaction for the user to sign on their wallet
+
+Tapestry Social Tools Guide:
+- Use 'get_tapestry_profile' to find a user's profile by wallet address (needed for other social actions)
+- Use 'create_social_post' to post content (requires profileId from get_tapestry_profile)
+- Use 'get_social_feed' to browse posts, optionally filtered by author
+- Use 'get_post_details' to see a specific post with engagement
+- Use 'comment_on_post' to add a comment on a post
+- Use 'like_post' / 'unlike_post' to toggle likes on posts
+- Always look up the user's profile first before creating posts or comments
+
 Always ask for wallet address when needed. Be helpful and educational about DeFi concepts.`
 
       // Start conversation loop with tool support
@@ -152,7 +201,7 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             messages: conversationMessages,
             max_tokens: 4096,
             system: systemPrompt || defaultSystemPrompt,
-            tools: [...jupiterTools, ...driftTools]
+            tools: [...jupiterTools, ...getDriftTools(), ...tapestryTools, ...sendTools]
           })
         })
 
@@ -204,10 +253,19 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             )
 
             // Execute the tool - route to correct handler based on tool name
-            const isDriftTool = driftTools.some(tool => tool.name === toolUse.name)
-            const toolResult = isDriftTool
-              ? await handleDriftToolCall(toolUse.name, toolUse.input)
-              : await handleJupiterToolCall(toolUse.name, toolUse.input)
+            const isDriftTool = getDriftTools().some(tool => tool.name === toolUse.name)
+            const isTapestryTool = tapestryTools.some(tool => tool.name === toolUse.name)
+            const isSendTool = sendTools.some(tool => tool.name === toolUse.name)
+            let toolResult
+            if (isDriftTool) {
+              toolResult = await handleDriftToolCall(toolUse.name, toolUse.input)
+            } else if (isTapestryTool) {
+              toolResult = await handleTapestryToolCall(toolUse.name, toolUse.input)
+            } else if (isSendTool) {
+              toolResult = await handleSendToolCall(toolUse.name, toolUse.input)
+            } else {
+              toolResult = await handleJupiterToolCall(toolUse.name, toolUse.input)
+            }
 
             toolResults.push({
               type: 'tool_result',

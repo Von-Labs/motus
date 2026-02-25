@@ -28,8 +28,18 @@ import {
   getSecretKeyBase58,
 } from "../utils/hotWallet";
 import { isHotWalletEnabled } from "../constants/featureFlags";
+import { DOMAIN } from "../../constants";
 
-const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+// Choose cluster for hot wallet: default devnet, can override via EXPO_PUBLIC_HOT_WALLET_CLUSTER
+const HOT_WALLET_CLUSTER_ENV =
+  (process.env.EXPO_PUBLIC_HOT_WALLET_CLUSTER || "devnet").toLowerCase();
+const HOT_WALLET_CLUSTER: "devnet" | "mainnet-beta" =
+  HOT_WALLET_CLUSTER_ENV === "mainnet-beta" ? "mainnet-beta" : "devnet";
+
+const connection = new Connection(
+  clusterApiUrl(HOT_WALLET_CLUSTER),
+  "confirmed",
+);
 
 const QUERY_KEYS = {
   keypair: ["hotWallet", "keypair"],
@@ -127,10 +137,24 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
     queryKey: QUERY_KEYS.balance(publicKey ?? ""),
     queryFn: async () => {
       if (!keypair) return null;
+      // On mainnet, ask backend (secured by SOLANA_RPC_URL) for balance
+      if (HOT_WALLET_CLUSTER === "mainnet-beta") {
+        const res = await fetch(
+          `${DOMAIN}/api/hotwallet/balance?pubkey=${encodeURIComponent(
+            getPublicKeyString(keypair),
+          )}`,
+        );
+        if (!res.ok) {
+          throw new Error("Failed to fetch hot wallet balance");
+        }
+        const data = await res.json();
+        return typeof data.balance === "number" ? data.balance : null;
+      }
+      // On devnet, we can safely use client RPC
       return connection.getBalance(keypair.publicKey);
     },
     enabled: isHotWalletActive,
-    refetchInterval: (query) => {
+    refetchInterval: (_query) => {
       if (AppState.currentState !== "active") return false;
       return 15_000;
     },
@@ -189,6 +213,46 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
     async (tx: Transaction | VersionedTransaction): Promise<string> => {
       if (!keypair) throw new Error("No hot wallet available");
 
+      // Mainnet: sign locally, send via backend using SOLANA_RPC_URL
+      if (HOT_WALLET_CLUSTER === "mainnet-beta") {
+        // Ensure fee payer + blockhash for legacy tx
+        if (tx instanceof Transaction) {
+          tx.feePayer = keypair.publicKey;
+          if (!tx.recentBlockhash) {
+            const res = await fetch(`${DOMAIN}/api/hotwallet/blockhash`);
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(
+                `Failed to get recent blockhash from server: ${text}`,
+              );
+            }
+            const data = await res.json();
+            tx.recentBlockhash = data.blockhash;
+          }
+          tx.sign(keypair);
+        } else {
+          // Versioned tx: assume it already has a recent blockhash
+          tx.sign([keypair]);
+        }
+
+        const rawTx = tx.serialize();
+        const base64Tx = Buffer.from(rawTx).toString("base64");
+        const res = await fetch(`${DOMAIN}/api/hotwallet/send-raw`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction: base64Tx }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Failed to send transaction via server: ${text}`);
+        }
+        const data = await res.json();
+        const sig = data.signature as string;
+        invalidateBalance();
+        return sig;
+      }
+
+      // Devnet: existing direct RPC behaviour (for easier local testing)
       if (tx instanceof Transaction) {
         tx.feePayer = keypair.publicKey;
         tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
@@ -228,9 +292,28 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
     async (lamports: number): Promise<string> => {
       if (!keypair) throw new Error("No hot wallet to top up");
 
+      // Get recent blockhash + minContextSlot from backend when on mainnet,
+      // otherwise use client connection (devnet) for convenience.
+      let blockhash: string;
+      let minContextSlot: number | undefined;
+      if (HOT_WALLET_CLUSTER === "mainnet-beta") {
+        const res = await fetch(`${DOMAIN}/api/hotwallet/blockhash`);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Failed to get recent blockhash from server: ${text}`);
+        }
+        const data = await res.json();
+        blockhash = data.blockhash;
+        minContextSlot = data.minContextSlot;
+      } else {
+        const latest = await connection.getLatestBlockhash("confirmed");
+        blockhash = latest.blockhash;
+        minContextSlot = await connection.getSlot("confirmed");
+      }
+
       const signatures = await transact(async (wallet: any) => {
         const authResult = await wallet.authorize({
-          cluster: "devnet",
+          cluster: HOT_WALLET_CLUSTER,
           identity: { name: "Motus" },
         });
 
@@ -240,8 +323,6 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
           new Uint8Array(toByteArray(account.address)),
         );
 
-        const { blockhash } =
-          await connection.getLatestBlockhash("confirmed");
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey,
@@ -252,17 +333,27 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
         tx.feePayer = fromPubkey;
         tx.recentBlockhash = blockhash;
 
-        const minContextSlot = await connection.getSlot("confirmed");
-
         return await wallet.signAndSendTransactions({
           transactions: [tx],
-          minContextSlot,
+          ...(minContextSlot != null ? { minContextSlot } : {}),
           commitment: "confirmed",
         });
       });
 
       const sig = signatures[0];
-      await connection.confirmTransaction(sig, "confirmed");
+
+      if (HOT_WALLET_CLUSTER === "mainnet-beta") {
+        // Ask backend (which uses secure SOLANA_RPC_URL) to confirm
+        await fetch(`${DOMAIN}/api/hotwallet/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ signature: sig }),
+        }).catch(() => {
+          // Non-fatal; balance will eventually update via poll
+        });
+      } else {
+        await connection.confirmTransaction(sig, "confirmed");
+      }
 
       invalidateBalance();
       return sig;
@@ -287,7 +378,23 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
   const requireBalance = useCallback(
     async (lamports: number): Promise<boolean> => {
       if (!keypair) return false;
-      const currentBalance = await connection.getBalance(keypair.publicKey);
+      let currentBalance: number;
+      if (HOT_WALLET_CLUSTER === "mainnet-beta") {
+        const res = await fetch(
+          `${DOMAIN}/api/hotwallet/balance?pubkey=${encodeURIComponent(
+            getPublicKeyString(keypair),
+          )}`,
+        );
+        if (!res.ok) {
+          throw new Error("Failed to fetch hot wallet balance");
+        }
+        const data = await res.json();
+        currentBalance =
+          typeof data.balance === "number" ? data.balance : 0;
+      } else {
+        currentBalance = await connection.getBalance(keypair.publicKey);
+      }
+
       queryClient.setQueryData(
         QUERY_KEYS.balance(getPublicKeyString(keypair)),
         currentBalance,

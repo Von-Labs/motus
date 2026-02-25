@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { useContext, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
 import { useHotWallet } from "../context/HotWalletContext";
@@ -69,115 +69,147 @@ export function Sidebar(props: DrawerContentComponentProps) {
           </TouchableOpacity>
         </View>
 
-        {/* Wallet Address Section */}
-        {walletAddress && (
-          <WalletCard
-            walletAddress={walletAddress}
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          {/* Wallet Address Section */}
+          {walletAddress && (
+            <WalletCard
+              walletAddress={walletAddress}
+              theme={theme}
+              styles={styles}
+            />
+          )}
+
+          {/* Recent Conversations */}
+          <ConversationList
+            conversations={recentConversations}
             theme={theme}
             styles={styles}
+            onSelectConversation={handleConversationSelect}
+            onViewAllChats={handleAllChats}
           />
-        )}
 
-        {/* Recent Conversations */}
-        <ConversationList
-          conversations={recentConversations}
-          theme={theme}
-          styles={styles}
-          onSelectConversation={handleConversationSelect}
-          onViewAllChats={handleAllChats}
-        />
+          {/* Menu Items */}
+          <View style={styles.menuSection}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleNewChat}
+            >
+              <Ionicons
+                name="chatbubble-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>New Chat</Text>
+            </TouchableOpacity>
 
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleNewChat}
-          >
-            <Ionicons
-              name="chatbubble-outline"
-              size={20}
-              color={theme.textColor}
-            />
-            <Text style={styles.menuText}>New Chat</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                props.navigation.navigate("NewsFeed");
+                props.navigation.closeDrawer();
+              }}
+            >
+              <Ionicons
+                name="newspaper-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>News Feed</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              props.navigation.navigate("Usage");
-              props.navigation.closeDrawer();
-            }}
-          >
-            <Ionicons
-              name="stats-chart-outline"
-              size={20}
-              color={theme.textColor}
-            />
-            <Text style={styles.menuText}>Usage & Billing</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                props.navigation.navigate("Send");
+                props.navigation.closeDrawer();
+              }}
+            >
+              <Ionicons
+                name="send-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>Send token</Text>
+            </TouchableOpacity>
 
-          {isHotWalletFeatureEnabled && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                props.navigation.navigate("Usage");
+                props.navigation.closeDrawer();
+              }}
+            >
+              <Ionicons
+                name="stats-chart-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>Usage & Billing</Text>
+            </TouchableOpacity>
+
+            {isHotWalletFeatureEnabled && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  props.navigation.closeDrawer();
+                  (props.navigation.getParent() as any)?.navigate("HotWallet");
+                }}
+              >
+                <Ionicons
+                  name="flame-outline"
+                  size={20}
+                  color={theme.textColor}
+                />
+                <Text style={styles.menuText}>Hot Wallet</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                props.navigation.navigate("Transactions");
+                props.navigation.closeDrawer();
+              }}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>Transaction History</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
                 props.navigation.closeDrawer();
-                (props.navigation.getParent() as any)?.navigate("HotWallet");
+                (props.navigation.getParent() as any)?.navigate("Settings");
               }}
             >
               <Ionicons
-                name="flame-outline"
+                name="settings-outline"
                 size={20}
                 color={theme.textColor}
               />
-              <Text style={styles.menuText}>Hot Wallet</Text>
+              <Text style={styles.menuText}>Settings</Text>
             </TouchableOpacity>
-          )}
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              props.navigation.navigate("Transactions");
-              props.navigation.closeDrawer();
-            }}
-          >
-            <Ionicons
-              name="receipt-outline"
-              size={20}
-              color={theme.textColor}
-            />
-            <Text style={styles.menuText}>Transaction History</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              props.navigation.closeDrawer();
-              (props.navigation.getParent() as any)?.navigate("Settings");
-            }}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={20}
-              color={theme.textColor}
-            />
-            <Text style={styles.menuText}>Settings</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              props.navigation.navigate("Bluetooth");
-              props.navigation.closeDrawer();
-            }}
-          >
-            <Ionicons
-              name="bluetooth-outline"
-              size={20}
-              color={theme.textColor}
-            />
-            <Text style={styles.menuText}>Bluetooth Lab</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                props.navigation.navigate("Bluetooth");
+                props.navigation.closeDrawer();
+              }}
+            >
+              <Ionicons
+                name="bluetooth-outline"
+                size={20}
+                color={theme.textColor}
+              />
+              <Text style={styles.menuText}>Bluetooth Lab</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
 
         {/* Disconnect Button */}
         {walletAddress && (

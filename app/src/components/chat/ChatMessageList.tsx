@@ -16,6 +16,7 @@ type ChatMessageListProps = {
   layoutStyles: { midChatInputWrapper: object; midChatInputContainer: object };
   onCopyUser: (text: string) => void;
   onAssistantPress: (text: string) => void;
+  onShare?: (text: string) => void;
 };
 
 export function ChatMessageList({
@@ -29,6 +30,7 @@ export function ChatMessageList({
   layoutStyles,
   onCopyUser,
   onAssistantPress,
+  onShare,
 }: ChatMessageListProps) {
   const renderItem = ({ item, index }: { item: ChatMessage; index: number }) => (
     <ChatMessageItem
@@ -36,6 +38,7 @@ export function ChatMessageList({
       theme={theme}
       onCopyUser={onCopyUser}
       onAssistantPress={onAssistantPress}
+      onShare={onShare}
     />
   );
 

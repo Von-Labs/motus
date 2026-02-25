@@ -20,5 +20,100 @@ allprojects {
   }
 }
 
+// Ensure Reanimated resolves worklets path correctly with pnpm (symlinks).
+def appRootDir = rootProject.projectDir.parentFile
+def workletsPackageDir = new File(
+  ["node", "--print", "require('fs').realpathSync(require.resolve('react-native-worklets/package.json'))"]
+    .execute(null, appRootDir)
+    .text
+    .trim()
+).getParentFile()
+rootProject.ext.REACT_NATIVE_WORKLETS_NODE_MODULES_DIR = workletsPackageDir.getAbsolutePath()
+
+subprojects { subproject ->
+  afterEvaluate {
+    if (subproject.plugins.hasPlugin("com.android.library")) {
+      subproject.android.buildTypes {
+        if (!it.findByName("staging")) {
+          staging {
+            initWith release
+            matchingFallbacks = ['release']
+          }
+        }
+      }
+    }
+  }
+}
+
+gradle.projectsEvaluated {
+  def appProject = rootProject.subprojects.find { it.name == "app" }
+  def reanimated = rootProject.subprojects.find { it.name == "react-native-reanimated" }
+  if (appProject != null && reanimated != null) {
+    def syncTaskProvider = appProject.tasks.named("syncWorkletsSoRelease")
+    reanimated.tasks.matching {
+      it.name.startsWith("buildCMakeRelWithDebInfo") || it.name.startsWith("buildCMakeRelease")
+    }.configureEach {
+      dependsOn(syncTaskProvider)
+      doFirst {
+        // Ensure libworklets.so exists at the symlink path right before linking
+        def appRootDirForCopy = rootProject.projectDir.parentFile
+        def dstBase = new File(appRootDirForCopy, "node_modules/react-native-worklets/android/build/intermediates/cmake/release/obj")
+        def dstSo = new File(dstBase, "arm64-v8a/libworklets.so")
+        def stagingDstBase = new File(appRootDirForCopy, "node_modules/react-native-worklets/android/build/intermediates/cmake/staging/obj")
+
+        def pnpmWorkletsRoots = fileTree(new File(appRootDirForCopy, "node_modules/.pnpm")) {
+          include "react-native-worklets@*/node_modules/react-native-worklets"
+        }.files
+
+        // If the symlink path is missing, try to copy from pnpm real path.
+        if (!dstSo.exists() || dstSo.length() == 0) {
+          def pnpmSoMatches = fileTree(new File(appRootDirForCopy, "node_modules/.pnpm")) {
+            include "react-native-worklets@*/node_modules/react-native-worklets/android/build/intermediates/cmake/release/obj/**/libworklets.so"
+            include "react-native-worklets@*/node_modules/react-native-worklets/android/build/intermediates/cmake/staging/obj/**/libworklets.so"
+          }.files
+          if (!pnpmSoMatches.isEmpty()) {
+            dstBase.mkdirs()
+            pnpmSoMatches.each { soFile ->
+              def rel = soFile.parentFile.name + "/libworklets.so"
+              def out = new File(dstBase, rel)
+              out.parentFile.mkdirs()
+              out.bytes = soFile.bytes
+            }
+          }
+        }
+
+        // If pnpm path is missing, copy from the symlink path to pnpm path.
+        if (!pnpmWorkletsRoots.isEmpty()) {
+          pnpmWorkletsRoots.each { pnpmRoot ->
+            def pnpmDstBase = new File(pnpmRoot, "android/build/intermediates/cmake/release/obj")
+            def pnpmDstSo = new File(pnpmDstBase, "arm64-v8a/libworklets.so")
+            if (!pnpmDstSo.exists() || pnpmDstSo.length() == 0) {
+              def sourceBase = (dstSo.exists() && dstSo.length() > 0) ? dstBase : stagingDstBase
+              def sourceMatches = fileTree(sourceBase).matching { include "**/libworklets.so" }
+              if (!sourceMatches.isEmpty()) {
+                pnpmDstBase.mkdirs()
+                // Copy all ABIs that exist in the chosen source path
+                sourceMatches.each { soFile ->
+                  def rel = soFile.parentFile.name + "/libworklets.so"
+                  def out = new File(pnpmDstBase, rel)
+                  out.parentFile.mkdirs()
+                  out.bytes = soFile.bytes
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Ensure app project (which sets REACT_NATIVE_WORKLETS_NODE_MODULES_DIR) is evaluated before reanimated.
+gradle.beforeProject { p ->
+  if (p.name == "react-native-reanimated") {
+    p.evaluationDependsOn(":app")
+  }
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"

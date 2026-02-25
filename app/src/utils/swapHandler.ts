@@ -99,6 +99,81 @@ export async function handleTriggerTransaction(
   return signature;
 }
 
+export type SolanaCluster = 'mainnet-beta' | 'devnet';
+
+/**
+ * Handle send token transaction (SOL or SPL) from /api/sends/prepare response
+ * @param sendData - Response from POST /api/sends/prepare: { transaction, type, amount, mint? }
+ * @param cluster - Network: 'mainnet-beta' or 'devnet'. Must match server SOLANA_RPC_URL.
+ * @returns Transaction signature
+ */
+export async function handleSendTransaction(
+  sendData: {
+    transaction: string;
+    type: 'sol' | 'spl';
+    amount: string;
+    mint?: string;
+    decimals?: number;
+    symbol?: string;
+    name?: string;
+  },
+  cluster: SolanaCluster = 'mainnet-beta'
+): Promise<string> {
+  if (!sendData.transaction) {
+    throw new Error("No transaction found in send data");
+  }
+
+  const { signature, signer } = await signAndSendTransactionFromBase64(
+    sendData.transaction,
+    { cluster },
+  );
+
+  try {
+    const details: Record<string, unknown> = {
+      type: sendData.type,
+      amount: sendData.amount,
+      mint: sendData.mint,
+    };
+    if (sendData.decimals != null) details.decimals = sendData.decimals;
+    details.symbol = sendData.symbol || sendData.name || null;
+    details.name = sendData.name || null;
+    await createWalletTransaction('send', signature, 'success', details, signer);
+  } catch (error) {
+    console.error('Failed to save send transaction to database:', error);
+  }
+
+  return signature;
+}
+
+/**
+ * Check if a tool result contains a send token transaction
+ */
+export function isSendTransaction(data: any): boolean {
+  return (
+    data &&
+    typeof data === 'object' &&
+    'transaction' in data &&
+    'type' in data &&
+    (data.type === 'sol' || data.type === 'spl')
+  );
+}
+
+/**
+ * Format send token details for display
+ */
+export function formatSendDetails(sendData: any): string {
+  if (!sendData) return '';
+
+  const isSol = sendData.type === 'sol';
+  const amount = sendData.amount || '?';
+
+  return `
+**Send ${isSol ? 'SOL' : 'SPL Token'} Transaction:**
+- Amount: ${amount} (smallest unit)
+${sendData.mint ? `- Token Mint: \`${sendData.mint.slice(0, 8)}...${sendData.mint.slice(-8)}\`` : ''}
+  `.trim();
+}
+
 /**
  * Check if a tool result contains a swap transaction
  */

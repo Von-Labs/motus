@@ -21,6 +21,7 @@ type ChatMessageItemProps = {
   theme: any;
   onCopyUser: (text: string) => void;
   onAssistantPress: (text: string) => void;
+  onShare?: (text: string) => void;
 };
 
 export function ChatMessageItem({
@@ -28,6 +29,7 @@ export function ChatMessageItem({
   theme,
   onCopyUser,
   onAssistantPress,
+  onShare,
 }: ChatMessageItemProps) {
   const styles = getMessageItemStyles(theme);
 
@@ -78,19 +80,36 @@ export function ChatMessageItem({
             <Markdown style={styles.markdownStyle as any}>
               {item.assistant}
             </Markdown>
-            <TouchableHighlight
-              onPress={() => onAssistantPress(item.assistant!)}
-              underlayColor="transparent"
-            >
-              <View style={styles.optionsIconWrapper}>
-                <Ionicons
-                  name="copy-outline"
-                  size={20}
-                  color={theme.textColor}
-                  opacity={0.6}
-                />
-              </View>
-            </TouchableHighlight>
+            <View style={styles.actionsRow}>
+              <TouchableHighlight
+                onPress={() => onAssistantPress(item.assistant!)}
+                underlayColor="transparent"
+              >
+                <View style={styles.optionsIconWrapper}>
+                  <Ionicons
+                    name="copy-outline"
+                    size={20}
+                    color={theme.textColor}
+                    opacity={0.6}
+                  />
+                </View>
+              </TouchableHighlight>
+              {onShare && (
+                <TouchableHighlight
+                  onPress={() => onShare(item.assistant!)}
+                  underlayColor="transparent"
+                >
+                  <View style={styles.optionsIconWrapper}>
+                    <Ionicons
+                      name="share-social-outline"
+                      size={20}
+                      color={theme.textColor}
+                      opacity={0.6}
+                    />
+                  </View>
+                </TouchableHighlight>
+              )}
+            </View>
           </View>
         </View>
       )}
@@ -100,6 +119,11 @@ export function ChatMessageItem({
 
 function getMessageItemStyles(theme: any) {
   return StyleSheet.create({
+    actionsRow: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 4,
+    },
     optionsIconWrapper: {
       padding: 10,
       paddingTop: 9,

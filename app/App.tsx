@@ -28,11 +28,14 @@ import { TopUpBottomSheet } from "./src/components/hotWallet/TopUpBottomSheet";
 import { Drawer, Stack } from "./src/constants/navigation";
 import { AppContext, ThemeContext } from "./src/context";
 import { HotWalletProvider } from "./src/context/HotWalletContext";
+import { ProfileProvider } from "./src/context/ProfileContext";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
   Bluetooth,
   HotWallet,
+  NewsFeed,
   Settings,
+  SendToken,
   TransactionDetail,
   TransactionHistory,
   Usage,
@@ -180,33 +183,35 @@ export default function App() {
                   setTheme: _setTheme,
                 }}
               >
-                <ActionSheetProvider>
-                  <NavigationContainer>
-                    <RootNavigator />
-                  </NavigationContainer>
-                </ActionSheetProvider>
-                <BottomSheetModalProvider>
-                  <BottomSheetModal
-                    handleIndicatorStyle={bottomSheetStyles.handleIndicator}
-                    handleStyle={bottomSheetStyles.handle}
-                    backgroundStyle={bottomSheetStyles.background}
-                    ref={bottomSheetModalRef}
-                    enableDynamicSizing={true}
-                    backdropComponent={(props) => (
-                      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
-                    )}
-                    enableDismissOnClose
-                    enablePanDownToClose
-                    onDismiss={() => setModalVisible(false)}
-                  >
-                    <BottomSheetView>
-                      <ChatModelModal
-                        handlePresentModalPress={handlePresentModalPress}
-                      />
-                    </BottomSheetView>
-                  </BottomSheetModal>
-                  {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
-                </BottomSheetModalProvider>
+                <ProfileProvider>
+                  <BottomSheetModalProvider>
+                    <ActionSheetProvider>
+                      <NavigationContainer>
+                        <RootNavigator />
+                      </NavigationContainer>
+                    </ActionSheetProvider>
+                    <BottomSheetModal
+                      handleIndicatorStyle={bottomSheetStyles.handleIndicator}
+                      handleStyle={bottomSheetStyles.handle}
+                      backgroundStyle={bottomSheetStyles.background}
+                      ref={bottomSheetModalRef}
+                      enableDynamicSizing={true}
+                      backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
+                      )}
+                      enableDismissOnClose
+                      enablePanDownToClose
+                      onDismiss={() => setModalVisible(false)}
+                    >
+                      <BottomSheetView>
+                        <ChatModelModal
+                          handlePresentModalPress={handlePresentModalPress}
+                        />
+                      </BottomSheetView>
+                    </BottomSheetModal>
+                    {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
+                  </BottomSheetModalProvider>
+                </ProfileProvider>
               </ThemeContext.Provider>
             </AppContext.Provider>
           </HotWalletProvider>
@@ -274,11 +279,31 @@ function RootNavigator() {
   );
 }
 
+function NewsFeedScreen() {
+  return (
+    <SafeAreaProvider>
+      <DrawerScreenLayout backgroundKey="default">
+        <NewsFeed />
+      </DrawerScreenLayout>
+    </SafeAreaProvider>
+  );
+}
+
 function UsageScreen() {
   return (
     <SafeAreaProvider>
       <DrawerScreenLayout backgroundKey="soft">
         <Usage />
+      </DrawerScreenLayout>
+    </SafeAreaProvider>
+  );
+}
+
+function SendTokenScreen() {
+  return (
+    <SafeAreaProvider>
+      <DrawerScreenLayout backgroundKey="default">
+        <SendToken />
       </DrawerScreenLayout>
     </SafeAreaProvider>
   );
@@ -339,6 +364,8 @@ function AppDrawer() {
       drawerContent={(props) => <Sidebar {...props} />}
     >
       <Drawer.Screen name="Home" component={Main} />
+      <Drawer.Screen name="Send" component={SendTokenScreen} />
+      <Drawer.Screen name="NewsFeed" component={NewsFeedScreen} />
       <Drawer.Screen name="Usage" component={UsageScreen} />
       <Drawer.Screen name="AllChats" component={AllChatsScreen} />
       <Drawer.Screen name="Bluetooth" component={BluetoothScreen} />

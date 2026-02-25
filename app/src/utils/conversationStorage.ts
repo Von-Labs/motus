@@ -35,12 +35,17 @@ export async function saveConversation(
       throw new Error('Failed to create conversation');
     }
 
-    // Get existing messages to avoid duplicates
+    // Get existing messages and count chat pairs (not DB rows)
     const existingMessages = await getMessages(convId);
-    const existingCount = existingMessages.length;
+    let existingPairCount = 0;
+    for (const msg of existingMessages) {
+      if (msg.role === 'user') {
+        existingPairCount++;
+      }
+    }
 
-    // Only save new messages (skip already saved ones)
-    const newMessages = messages.slice(existingCount);
+    // Only save new message pairs (skip already saved ones)
+    const newMessages = messages.slice(existingPairCount);
 
     for (const msg of newMessages) {
       // Save user message
@@ -79,6 +84,12 @@ export async function loadConversation(
 
     for (const msg of dbMessages) {
       if (msg.role === 'user') {
+        // If there's a previous user message without assistant response, save it first
+        if (currentUserMessage) {
+          chatMessages.push({
+            user: currentUserMessage,
+          });
+        }
         currentUserMessage = msg.content;
       } else if (msg.role === 'assistant' && currentUserMessage) {
         const toolingSteps = msg.toolingSteps

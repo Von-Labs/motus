@@ -17,6 +17,8 @@ export function getTypeIcon(type: string): string {
       return "checkmark-circle";
     case "cancel_order":
       return "close-circle";
+    case "send":
+      return "send";
     default:
       return "help-circle";
   }
@@ -30,7 +32,38 @@ export function getTypeLabel(type: string): string {
       return "Trigger Order";
     case "cancel_order":
       return "Cancel Order";
+    case "send":
+      return "Send";
     default:
       return type;
   }
+}
+
+const LAMPORTS_PER_SOL = 1e9;
+
+/**
+ * Format amount for display by token type.
+ * Send SOL: lamports → "0.01 SOL".
+ * Send SPL: raw + decimals + symbol (if saved) → "10.00 USDC".
+ */
+export function formatAmountDisplay(
+  details: Record<string, unknown>,
+  transactionType: string
+): string {
+  if (transactionType === "send" && details.type === "sol" && details.amount != null) {
+    const lamports = Number(details.amount);
+    return `${(lamports / LAMPORTS_PER_SOL).toFixed(4)} Solana`;
+  }
+  if (transactionType === "send" && details.type === "spl" && details.amount != null) {
+    const raw = Number(details.amount);
+    const decimals = typeof details.decimals === "number" ? details.decimals : 6;
+    const name = typeof details.name === "string" && details.name ? details.name : null;
+    const symbol = typeof details.symbol === "string" && details.symbol ? details.symbol : null;
+    const label = name || symbol || "token";
+    const human = raw / Math.pow(10, decimals);
+    const fixed = human >= 1 || human === 0 ? human.toFixed(2) : human.toFixed(4);
+    return `${fixed} ${label}`;
+  }
+  if (details.amount != null) return String(details.amount);
+  return "";
 }
