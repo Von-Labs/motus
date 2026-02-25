@@ -63,6 +63,63 @@ react {
     autolinkLibrariesWithApp()
 }
 
+// Ensure Reanimated resolves worklets path correctly with pnpm (symlinks).
+def appRootDir = rootProject.projectDir.parentFile
+def workletsRootFromExt = rootProject.ext.has("REACT_NATIVE_WORKLETS_NODE_MODULES_DIR")
+    ? rootProject.ext.get("REACT_NATIVE_WORKLETS_NODE_MODULES_DIR")
+    : null
+def workletsPackageDir = workletsRootFromExt != null ? file(workletsRootFromExt) : new File(
+    ["node", "--print", "require('fs').realpathSync(require.resolve('react-native-worklets/package.json'))"]
+        .execute(null, appRootDir)
+        .text
+        .trim()
+).getParentFile()
+def workletsObjDir = new File(workletsPackageDir, "android/build/intermediates/cmake/release/obj")
+def workletsSo = new File(workletsObjDir, "arm64-v8a/libworklets.so")
+if (!workletsSo.exists() || workletsSo.length() == 0) {
+    def pnpmSoMatches = fileTree(new File(appRootDir, "node_modules/.pnpm")) {
+        include "react-native-worklets@*/node_modules/react-native-worklets/android/build/intermediates/cmake/release/obj/**/libworklets.so"
+    }.files
+    if (!pnpmSoMatches.isEmpty()) {
+        // Prefer pnpm real path when symlink path doesn't contain a valid .so
+        def pnpmSo = pnpmSoMatches.iterator().next()
+        workletsObjDir = pnpmSo.parentFile.parentFile  // .../obj/<abi> -> .../obj
+        workletsPackageDir = workletsObjDir.parentFile.parentFile.parentFile.parentFile
+    }
+}
+project.ext.REACT_NATIVE_WORKLETS_NODE_MODULES_DIR = workletsPackageDir.getAbsolutePath()
+
+def syncWorkletsSoRelease = tasks.register("syncWorkletsSoRelease", Copy) {
+    def srcTree = fileTree(workletsObjDir) {
+        include "**/libworklets.so"
+    }
+    def dstBase = file("${projectRoot}/node_modules/react-native-worklets/android/build/intermediates/cmake/release/obj")
+    from(srcTree)
+    into(dstBase)
+    // Force copy each time to avoid stale/empty .so
+    outputs.upToDateWhen { false }
+    includeEmptyDirs = false
+    eachFile { fcd ->
+        // Keep only <abi>/libworklets.so
+        fcd.path = fcd.path.replaceFirst('^.*?/obj/', '')
+    }
+    inputs.files(srcTree)
+    outputs.dir(dstBase)
+    dependsOn(":react-native-worklets:externalNativeBuildRelease")
+    doFirst {
+        if (srcTree.isEmpty()) {
+            throw new GradleException("worklets .so not found for release under ${workletsPackageDir}")
+        }
+        dstBase.mkdirs()
+        // Remove existing libs so copy is guaranteed to overwrite
+        fileTree(dstBase).matching { include "**/libworklets.so" }.each { it.delete() }
+    }
+}
+
+tasks.matching { it.name == "preStagingBuild" || it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(syncWorkletsSoRelease)
+}
+
 /**
  * Set this to true in release builds to optimize the app using [R8](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization).
  */
@@ -104,15 +161,32 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        dappStore {
+            storeFile file("keystores/motus_prod.keystore")
+            storePassword "motus_prod"
+            keyAlias "motus"
+            keyPassword "motus_prod"
+        }
+        staging {
+            storeFile file("keystores/motus_staging.keystore")
+            storePassword "motus_staging"
+            keyAlias "motus_staging"
+            keyPassword "motus_staging"
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
+        staging {
+            initWith release
+            signingConfig signingConfigs.staging
+            matchingFallbacks = ['release']
+        }
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.dappStore
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

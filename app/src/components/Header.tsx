@@ -115,15 +115,10 @@ export function Header() {
           >
             {profileLoading || isCreating ? (
               <ActivityIndicator size={16} color={theme.tintColor} />
-            ) : hasProfile ? (
-              <Image
-                source={{ uri: getAvatarUrl(profile?.username)! }}
-                style={styles.profileAvatar}
-              />
             ) : (
               <Ionicons
-                name="person-add-outline"
-                size={16}
+                name={hasProfile ? "person-circle-outline" : "person-add-outline"}
+                size={18}
                 color={theme.tintColor}
               />
             )}
