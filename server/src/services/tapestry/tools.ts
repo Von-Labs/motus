@@ -155,6 +155,33 @@ export const tapestryTools = [
     }
   },
   {
+    name: 'get_post_likes',
+    description:
+      'Get the list of profiles who liked a specific post. Use when user wants to see who liked a post.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        contentId: {
+          type: 'string',
+          description: 'The content/post ID to get likes for'
+        },
+        page: {
+          type: 'string',
+          description: 'Optional: Page number for pagination'
+        },
+        pageSize: {
+          type: 'string',
+          description: 'Optional: Number of profiles per page'
+        },
+        requestingProfileId: {
+          type: 'string',
+          description: 'Optional: Profile ID of the viewer (to check follow status)'
+        }
+      },
+      required: ['contentId']
+    }
+  },
+  {
     name: 'get_tapestry_profile',
     description:
       'Look up a Tapestry social profile by wallet address or profile ID. Use when user asks about a profile, or you need to find a profile ID for other operations.',

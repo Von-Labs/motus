@@ -1,3 +1,5 @@
 export * from './types'
 export { buildTransferTransaction } from './transferService'
 export { default as sendRouter } from './sendRouter'
+export { sendTools } from './tools'
+export { handleToolCall } from './toolHandler'

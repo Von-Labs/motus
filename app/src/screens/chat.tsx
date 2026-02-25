@@ -10,7 +10,12 @@ import {
 } from "react-native";
 import "react-native-get-random-values";
 import { v4 as uuid } from "uuid";
-import { ChatInput, ChatMessageList } from "../components";
+import {
+  ChatInput,
+  ChatMessageList,
+  ShareBottomSheet,
+  type ShareBottomSheetRef,
+} from "../components";
 import { AppContext, ThemeContext } from "../context";
 import { useHotWallet } from "../context/HotWalletContext";
 import { getChatType, getEventSource, getFirstNCharsOrLess } from "../utils";
@@ -24,11 +29,14 @@ import {
 } from "../utils/conversationStorage";
 import {
   formatCancelOrderDetails,
+  formatSendDetails,
   formatSwapDetails,
   formatTriggerOrderDetails,
+  handleSendTransaction,
   handleSwapTransaction,
   handleTriggerTransaction,
   isCancelOrderTransaction,
+  isSendTransaction,
   isSwapTransaction,
   isTriggerOrderTransaction,
 } from "../utils/swapHandler";
@@ -36,6 +44,7 @@ import {
   formatTapestryActionDetails,
   handleTapestryAction,
   isTapestryPendingAction,
+  shareToSocial,
 } from "../utils/tapestryHandler";
 import type { ChatState } from "./chat/types";
 import { createEmptyChatState } from "./chat/types";
@@ -45,6 +54,7 @@ export function Chat() {
   const [loading, setLoading] = useState<boolean>(false);
   const [input, setInput] = useState<string>("");
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const shareSheetRef = useRef<ShareBottomSheetRef>(null);
   const { showActionSheetWithOptions } = useActionSheet();
 
   // Track pending swap transaction
@@ -618,6 +628,47 @@ Always confirm the wallet address before performing any transactions.`;
                   });
               }
 
+              // Check if this is a send token transaction
+              if (
+                data.name === "send_tokens" &&
+                isSendTransaction(data.result)
+              ) {
+                console.log(
+                  "Send transaction detected, prompting user to sign...",
+                );
+
+                localResponse =
+                  localResponse + formatSendDetails(data.result) + "\n\n";
+
+                handleSendTransaction(data.result, (swapHandlerOptions?.cluster as 'mainnet-beta' | 'devnet') ?? 'mainnet-beta')
+                  .then((signature) => {
+                    console.log("Send executed:", signature);
+                    localResponse =
+                      localResponse +
+                      `✅ **Tokens sent!**\n\nTransaction: [${signature.slice(0, 8)}...${signature.slice(-8)}](https://solscan.io/tx/${signature})\n\n`;
+
+                    messageArray[messageArray.length - 1].assistant =
+                      localResponse;
+                    updateChatState(modelLabel, (prev) => ({
+                      ...prev,
+                      messages: JSON.parse(JSON.stringify(messageArray)),
+                    }));
+                  })
+                  .catch((error) => {
+                    console.error("Send failed:", error);
+                    localResponse =
+                      localResponse +
+                      `❌ **Send failed:** ${error.message}\n\n`;
+
+                    messageArray[messageArray.length - 1].assistant =
+                      localResponse;
+                    updateChatState(modelLabel, (prev) => ({
+                      ...prev,
+                      messages: JSON.parse(JSON.stringify(messageArray)),
+                    }));
+                  });
+              }
+
               // Check if this is a tapestry write action requiring wallet sign
               if (isTapestryPendingAction(data.result) && walletAddress) {
                 console.log(
@@ -770,6 +821,29 @@ Always confirm the wallet address before performing any transactions.`;
     }
   }
 
+  async function handleShare(text: string) {
+    if (!walletAddress) {
+      shareSheetRef.current?.setStatus("error", "Please connect your wallet to share.");
+      shareSheetRef.current?.present();
+      return;
+    }
+
+    shareSheetRef.current?.setStatus("summarizing");
+    shareSheetRef.current?.present();
+
+    try {
+      await shareToSocial(text, {
+        walletAddress,
+        signMessage,
+        onSummarized: () => shareSheetRef.current?.setStatus("signing", "Please sign with your wallet to post."),
+      });
+      shareSheetRef.current?.setStatus("success", "Your post has been published!");
+    } catch (error: any) {
+      console.error("Share failed:", error);
+      shareSheetRef.current?.setStatus("error", error.message || "Failed to share post.");
+    }
+  }
+
   const currentChatState = getChatState(chatType.label);
   const callMade = currentChatState.messages.length > 0;
 
@@ -794,6 +868,7 @@ Always confirm the wallet address before performing any transactions.`;
           layoutStyles={layoutStyles}
           onCopyUser={copyToClipboard}
           onAssistantPress={showClipboardActionsheet}
+          onShare={handleShare}
         />
         <View style={layoutStyles.chatInputFloating}>
           <ChatInput
@@ -804,6 +879,7 @@ Always confirm the wallet address before performing any transactions.`;
           />
         </View>
       </View>
+      <ShareBottomSheet ref={shareSheetRef} />
     </KeyboardAvoidingView>
   );
 }

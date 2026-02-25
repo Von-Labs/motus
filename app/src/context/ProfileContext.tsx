@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { Alert } from "react-native";
 import { DOMAIN } from "../../constants";
 import { AppContext } from "../context";
+import { getAvatarUrl } from "../utils/avatar";
 
 interface TapestryProfile {
   id: string;
@@ -105,6 +106,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           walletAddress,
           username: params.username,
           bio: params.bio,
+          image: getAvatarUrl(walletAddress)!,
           blockchain: "SOLANA",
         }),
       });
