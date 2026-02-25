@@ -184,33 +184,33 @@ export default function App() {
                 }}
               >
                 <ProfileProvider>
-                <ActionSheetProvider>
-                  <NavigationContainer>
-                    <RootNavigator />
-                  </NavigationContainer>
-                </ActionSheetProvider>
-                <BottomSheetModalProvider>
-                  <BottomSheetModal
-                    handleIndicatorStyle={bottomSheetStyles.handleIndicator}
-                    handleStyle={bottomSheetStyles.handle}
-                    backgroundStyle={bottomSheetStyles.background}
-                    ref={bottomSheetModalRef}
-                    enableDynamicSizing={true}
-                    backdropComponent={(props) => (
-                      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
-                    )}
-                    enableDismissOnClose
-                    enablePanDownToClose
-                    onDismiss={() => setModalVisible(false)}
-                  >
-                    <BottomSheetView>
-                      <ChatModelModal
-                        handlePresentModalPress={handlePresentModalPress}
-                      />
-                    </BottomSheetView>
-                  </BottomSheetModal>
-                  {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
-                </BottomSheetModalProvider>
+                  <BottomSheetModalProvider>
+                    <ActionSheetProvider>
+                      <NavigationContainer>
+                        <RootNavigator />
+                      </NavigationContainer>
+                    </ActionSheetProvider>
+                    <BottomSheetModal
+                      handleIndicatorStyle={bottomSheetStyles.handleIndicator}
+                      handleStyle={bottomSheetStyles.handle}
+                      backgroundStyle={bottomSheetStyles.background}
+                      ref={bottomSheetModalRef}
+                      enableDynamicSizing={true}
+                      backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
+                      )}
+                      enableDismissOnClose
+                      enablePanDownToClose
+                      onDismiss={() => setModalVisible(false)}
+                    >
+                      <BottomSheetView>
+                        <ChatModelModal
+                          handlePresentModalPress={handlePresentModalPress}
+                        />
+                      </BottomSheetView>
+                    </BottomSheetModal>
+                    {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
+                  </BottomSheetModalProvider>
                 </ProfileProvider>
               </ThemeContext.Provider>
             </AppContext.Provider>

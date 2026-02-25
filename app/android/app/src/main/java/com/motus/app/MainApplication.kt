@@ -14,7 +14,6 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 
 import expo.modules.ApplicationLifecycleDispatcher
-import com.motus.app.bluetooth.BlePeripheralPackage
 import expo.modules.ReactNativeHostWrapper
 
 class MainApplication : Application(), ReactApplication {
@@ -26,7 +25,6 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
-              add(BlePeripheralPackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"

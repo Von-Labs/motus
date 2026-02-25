@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
 import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
+import { sendTools, handleToolCall as handleSendToolCall } from '../sends'
 import { tapestryTools, handleToolCall as handleTapestryToolCall } from '../services/tapestry'
 import { db } from '../db/supabase'
 
@@ -103,6 +104,10 @@ Jupiter Tools (Spot Trading):
 - Create DCA (Dollar-Cost Averaging) strategies
 - Check token security
 
+Send Tools (Token Transfers):
+- Send SOL or SPL tokens to any wallet address
+- Supports native SOL and all SPL tokens (USDC, USDT, BONK, JUP, etc.)
+
 Tapestry Social Tools (Social Features):
 - Create social posts with text and images
 - Browse the social feed
@@ -159,6 +164,13 @@ Token Decimals (important for calculations):
 - USDT: 6 decimals
 - JUP: 6 decimals
 
+Send Tools Guide:
+- Use 'send_tokens' to transfer SOL or SPL tokens to another wallet
+- For SOL: omit mint, amount in lamports (1 SOL = 1000000000)
+- For SPL: provide mint address and decimals (e.g. USDC: mint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, decimals=6, 1 USDC = 1000000)
+- The sender field should be the user's wallet address
+- Returns an unsigned transaction for the user to sign on their wallet
+
 Tapestry Social Tools Guide:
 - Use 'get_tapestry_profile' to find a user's profile by wallet address (needed for other social actions)
 - Use 'create_social_post' to post content (requires profileId from get_tapestry_profile)
@@ -189,7 +201,7 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             messages: conversationMessages,
             max_tokens: 4096,
             system: systemPrompt || defaultSystemPrompt,
-            tools: [...jupiterTools, ...getDriftTools(), ...tapestryTools]
+            tools: [...jupiterTools, ...getDriftTools(), ...tapestryTools, ...sendTools]
           })
         })
 
@@ -243,11 +255,14 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
             // Execute the tool - route to correct handler based on tool name
             const isDriftTool = getDriftTools().some(tool => tool.name === toolUse.name)
             const isTapestryTool = tapestryTools.some(tool => tool.name === toolUse.name)
+            const isSendTool = sendTools.some(tool => tool.name === toolUse.name)
             let toolResult
             if (isDriftTool) {
               toolResult = await handleDriftToolCall(toolUse.name, toolUse.input)
             } else if (isTapestryTool) {
               toolResult = await handleTapestryToolCall(toolUse.name, toolUse.input)
+            } else if (isSendTool) {
+              toolResult = await handleSendToolCall(toolUse.name, toolUse.input)
             } else {
               toolResult = await handleJupiterToolCall(toolUse.name, toolUse.input)
             }

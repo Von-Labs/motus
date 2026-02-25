@@ -66,6 +66,22 @@ export async function handleToolCall(
         }
       }
 
+      case 'get_post_likes': {
+        const likes = await TapestryService.getLikes(
+          toolInput.contentId,
+          {
+            page: toolInput.page,
+            pageSize: toolInput.pageSize,
+            requestingProfileId: toolInput.requestingProfileId
+          }
+        )
+        return {
+          success: true,
+          message: `Retrieved ${likes.profiles?.length || 0} profiles who liked this post`,
+          data: likes
+        }
+      }
+
       case 'get_tapestry_profile': {
         if (toolInput.profileId) {
           const profile = await TapestryService.getProfileById(toolInput.profileId)

@@ -115,9 +115,14 @@ export function Header() {
           >
             {profileLoading || isCreating ? (
               <ActivityIndicator size={16} color={theme.tintColor} />
+            ) : hasProfile ? (
+              <Image
+                source={{ uri: profile?.image || getAvatarUrl(walletAddress)! }}
+                style={styles.profileAvatar}
+              />
             ) : (
               <Ionicons
-                name={hasProfile ? "person-circle-outline" : "person-add-outline"}
+                name="person-add-outline"
                 size={18}
                 color={theme.tintColor}
               />
@@ -209,7 +214,7 @@ export function Header() {
               <View style={styles.profileInfoSection}>
                 <View style={styles.profileAvatarLarge}>
                   <Image
-                    source={{ uri: getAvatarUrl(profile?.username)! }}
+                    source={{ uri: profile?.image || getAvatarUrl(walletAddress)! }}
                     style={styles.profileAvatarLargeImage}
                   />
                 </View>

@@ -146,6 +146,35 @@ export async function handleSendTransaction(
 }
 
 /**
+ * Check if a tool result contains a send token transaction
+ */
+export function isSendTransaction(data: any): boolean {
+  return (
+    data &&
+    typeof data === 'object' &&
+    'transaction' in data &&
+    'type' in data &&
+    (data.type === 'sol' || data.type === 'spl')
+  );
+}
+
+/**
+ * Format send token details for display
+ */
+export function formatSendDetails(sendData: any): string {
+  if (!sendData) return '';
+
+  const isSol = sendData.type === 'sol';
+  const amount = sendData.amount || '?';
+
+  return `
+**Send ${isSol ? 'SOL' : 'SPL Token'} Transaction:**
+- Amount: ${amount} (smallest unit)
+${sendData.mint ? `- Token Mint: \`${sendData.mint.slice(0, 8)}...${sendData.mint.slice(-8)}\`` : ''}
+  `.trim();
+}
+
+/**
  * Check if a tool result contains a swap transaction
  */
 export function isSwapTransaction(data: any): boolean {
