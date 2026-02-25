@@ -16,6 +16,7 @@ import {
 import { AppContext, ThemeContext } from "../../src/context";
 import { useHotWallet } from "../../src/context/HotWalletContext";
 import { useProfile } from "../../src/context/ProfileContext";
+import { getAvatarUrl } from "../utils/avatar";
 import { MenuIcon } from "./MenuIcon";
 
 export function Header() {
@@ -114,13 +115,11 @@ export function Header() {
           >
             {profileLoading || isCreating ? (
               <ActivityIndicator size={16} color={theme.tintColor} />
-            ) : hasProfile && profile?.image ? (
+            ) : hasProfile ? (
               <Image
-                source={{ uri: profile.image }}
+                source={{ uri: getAvatarUrl(profile?.username)! }}
                 style={styles.profileAvatar}
               />
-            ) : hasProfile ? (
-              <Ionicons name="person" size={16} color={theme.tintColor} />
             ) : (
               <Ionicons
                 name="person-add-outline"
@@ -214,14 +213,10 @@ export function Header() {
 
               <View style={styles.profileInfoSection}>
                 <View style={styles.profileAvatarLarge}>
-                  {profile?.image ? (
-                    <Image
-                      source={{ uri: profile.image }}
-                      style={styles.profileAvatarLargeImage}
-                    />
-                  ) : (
-                    <Ionicons name="person" size={32} color={theme.tintColor} />
-                  )}
+                  <Image
+                    source={{ uri: getAvatarUrl(profile?.username)! }}
+                    style={styles.profileAvatarLargeImage}
+                  />
                 </View>
                 <Text style={styles.profileUsername}>
                   {profile?.username ?? "Unknown"}
