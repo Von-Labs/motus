@@ -7,3 +7,4 @@ export { TransactionDetail } from "./transactionDetail";
 export { SendToken } from "./SendToken";
 export { Usage } from "./usage";
 export { HotWallet } from "./hotWallet";
+export { NewsFeed } from "./newsFeed";

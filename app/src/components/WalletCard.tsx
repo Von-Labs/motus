@@ -1,17 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Text, View } from "react-native";
+import { truncateAddress } from "../utils/formatAddress";
 
 interface WalletCardProps {
   walletAddress: string;
   theme: any;
   styles: any;
 }
-
-// Helper to format wallet address: 4 chars...4 chars
-const formatWalletAddress = (address: string) => {
-  if (!address) return "";
-  return `${address.slice(0, 8)}...${address.slice(-8)}`;
-};
 
 export function WalletCard({ walletAddress, theme, styles }: WalletCardProps) {
   return (
@@ -23,7 +18,7 @@ export function WalletCard({ walletAddress, theme, styles }: WalletCardProps) {
         <View style={styles.walletInfo}>
           <Text style={styles.walletLabel}>Connected Wallet</Text>
           <Text style={styles.walletAddress}>
-            {formatWalletAddress(walletAddress)}
+            {truncateAddress(walletAddress)}
           </Text>
         </View>
       </View>

@@ -89,6 +89,14 @@ export function Header() {
 
         <View style={styles.rightContainer}>
           <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate("NewsFeed" as never)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="newspaper-outline" size={18} color={theme.tintColor} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.profileButton}
             onPress={handleProfilePress}
             activeOpacity={0.7}
@@ -324,6 +332,14 @@ function getStyles(theme: any) {
       width: 34,
       height: 34,
       borderRadius: 999,
+    },
+    iconButton: {
+      width: 34,
+      height: 34,
+      borderRadius: 999,
+      backgroundColor: `${theme.tintColor}14`,
+      alignItems: "center",
+      justifyContent: "center",
     },
     hotWalletButton: {
       padding: 8,

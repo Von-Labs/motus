@@ -33,6 +33,7 @@ import { DrawerScreenLayout, Main } from "./src/main";
 import {
   Bluetooth,
   HotWallet,
+  NewsFeed,
   Settings,
   SendToken,
   TransactionDetail,
@@ -278,6 +279,16 @@ function RootNavigator() {
   );
 }
 
+function NewsFeedScreen() {
+  return (
+    <SafeAreaProvider>
+      <DrawerScreenLayout backgroundKey="default">
+        <NewsFeed />
+      </DrawerScreenLayout>
+    </SafeAreaProvider>
+  );
+}
+
 function UsageScreen() {
   return (
     <SafeAreaProvider>
@@ -354,6 +365,7 @@ function AppDrawer() {
     >
       <Drawer.Screen name="Home" component={Main} />
       <Drawer.Screen name="Send" component={SendTokenScreen} />
+      <Drawer.Screen name="NewsFeed" component={NewsFeedScreen} />
       <Drawer.Screen name="Usage" component={UsageScreen} />
       <Drawer.Screen name="AllChats" component={AllChatsScreen} />
       <Drawer.Screen name="Bluetooth" component={BluetoothScreen} />

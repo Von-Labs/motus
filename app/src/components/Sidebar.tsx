@@ -119,6 +119,21 @@ export function Sidebar(props: DrawerContentComponentProps) {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
+              props.navigation.navigate("NewsFeed");
+              props.navigation.closeDrawer();
+            }}
+          >
+            <Ionicons
+              name="newspaper-outline"
+              size={20}
+              color={theme.textColor}
+            />
+            <Text style={styles.menuText}>News Feed</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
               props.navigation.navigate("Usage");
               props.navigation.closeDrawer();
             }}
