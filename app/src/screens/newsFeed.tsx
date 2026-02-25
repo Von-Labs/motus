@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,19 +8,37 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRoute } from "@react-navigation/native";
 import { ContentCard } from "../components/newsFeed/ContentCard";
 import { getNewsFeedStyles } from "../components/newsFeed/newsFeedStyles";
 import { ThemeContext } from "../context";
 import { useNewsFeed } from "../context/ProfileContext";
 
 export function NewsFeed() {
+  const route = useRoute<any>();
   const { theme } = useContext(ThemeContext);
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch, isFetching } =
     useNewsFeed(page);
   const styles = getNewsFeedStyles(theme);
+  const listRef = useRef<FlatList>(null);
+  const lastRefreshTokenRef = useRef<number | string | null>(null);
 
   const contents = data?.contents ?? [];
+  const refreshToken = route?.params?.refreshFeedToken;
+  const shouldScrollToTop = route?.params?.scrollToTop;
+
+  useEffect(() => {
+    if (!refreshToken || refreshToken === lastRefreshTokenRef.current) return;
+    lastRefreshTokenRef.current = refreshToken;
+    setPage(1);
+    refetch();
+    if (shouldScrollToTop) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      });
+    }
+  }, [refreshToken, refetch, shouldScrollToTop]);
 
   if (isLoading) {
     return (
@@ -50,6 +68,7 @@ export function NewsFeed() {
 
   return (
     <FlatList
+      ref={listRef}
       data={contents}
       keyExtractor={(item, idx) => item.content?.id ?? String(idx)}
       renderItem={({ item }) => (

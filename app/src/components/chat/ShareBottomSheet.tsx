@@ -4,6 +4,7 @@ import {
   BottomSheetModal,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
+import { useNavigation } from "@react-navigation/native";
 import {
   forwardRef,
   useContext,
@@ -31,6 +32,7 @@ export type ShareBottomSheetRef = {
 export const ShareBottomSheet = forwardRef<ShareBottomSheetRef>(
   function ShareBottomSheet(_, ref) {
     const { theme } = useContext(ThemeContext);
+    const navigation = useNavigation<any>();
     const modalRef = useRef<BottomSheetModal>(null);
     const [status, setStatusState] = useState<ShareStatus>("idle");
     const [message, setMessage] = useState("");
@@ -41,7 +43,11 @@ export const ShareBottomSheet = forwardRef<ShareBottomSheetRef>(
       dismiss: () => modalRef.current?.dismiss(),
       setStatus: (s: ShareStatus, msg?: string) => {
         setStatusState(s);
-        if (msg) setMessage(msg);
+        if (typeof msg === "string") {
+          setMessage(msg);
+        } else {
+          setMessage("");
+        }
       },
     }));
 
@@ -104,14 +110,38 @@ export const ShareBottomSheet = forwardRef<ShareBottomSheetRef>(
           ) : null}
 
           {(status === "success" || status === "error") && (
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => modalRef.current?.dismiss()}
-            >
-              <Text style={styles.buttonText}>
-                {status === "success" ? "Done" : "Close"}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              {status === "success" ? (
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => {
+                    modalRef.current?.dismiss();
+                    navigation.navigate("NewsFeed", {
+                      refreshFeedToken: Date.now(),
+                      scrollToTop: true,
+                    });
+                  }}
+                >
+                  <Text style={styles.buttonText}>Go to News Feed</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  status === "success" && styles.secondaryButton,
+                ]}
+                onPress={() => modalRef.current?.dismiss()}
+              >
+                <Text
+                  style={[
+                    styles.buttonText,
+                    status === "success" && styles.secondaryButtonText,
+                  ]}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
         </BottomSheetView>
       </BottomSheetModal>
@@ -155,6 +185,10 @@ const getStyles = (theme: any) =>
       marginBottom: 20,
       paddingHorizontal: 16,
     },
+    buttonRow: {
+      width: "100%",
+      gap: 12,
+    },
     button: {
       backgroundColor: theme.tintColor,
       paddingVertical: 12,
@@ -162,9 +196,17 @@ const getStyles = (theme: any) =>
       borderRadius: 12,
       alignItems: "center",
     },
+    secondaryButton: {
+      backgroundColor: "transparent",
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+    },
     buttonText: {
       fontSize: 16,
       fontFamily: theme.semiBoldFont,
       color: theme.tintTextColor,
+    },
+    secondaryButtonText: {
+      color: theme.textColor,
     },
   });
