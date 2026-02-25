@@ -74,11 +74,22 @@ def workletsPackageDir = workletsRootFromExt != null ? file(workletsRootFromExt)
         .text
         .trim()
 ).getParentFile()
-def workletsObjDir = new File(workletsPackageDir, "android/build/intermediates/cmake/release/obj")
+def workletsVariantName = "release"
+def workletsObjDir = new File(workletsPackageDir, "android/build/intermediates/cmake/${workletsVariantName}/obj")
 def workletsSo = new File(workletsObjDir, "arm64-v8a/libworklets.so")
 if (!workletsSo.exists() || workletsSo.length() == 0) {
+    def stagingObjDir = new File(workletsPackageDir, "android/build/intermediates/cmake/staging/obj")
+    def stagingSoMatches = fileTree(stagingObjDir) { include "**/libworklets.so" }.files
+    if (!stagingSoMatches.isEmpty()) {
+        // Staging build produced .so; use it as source when release is missing.
+        workletsVariantName = "staging"
+        workletsObjDir = stagingObjDir
+        workletsSo = new File(workletsObjDir, "arm64-v8a/libworklets.so")
+    }
+}
+if (!workletsSo.exists() || workletsSo.length() == 0) {
     def pnpmSoMatches = fileTree(new File(appRootDir, "node_modules/.pnpm")) {
-        include "react-native-worklets@*/node_modules/react-native-worklets/android/build/intermediates/cmake/release/obj/**/libworklets.so"
+        include "react-native-worklets@*/node_modules/react-native-worklets/android/build/intermediates/cmake/${workletsVariantName}/obj/**/libworklets.so"
     }.files
     if (!pnpmSoMatches.isEmpty()) {
         // Prefer pnpm real path when symlink path doesn't contain a valid .so
@@ -105,7 +116,8 @@ def syncWorkletsSoRelease = tasks.register("syncWorkletsSoRelease", Copy) {
     }
     inputs.files(srcTree)
     outputs.dir(dstBase)
-    dependsOn(":react-native-worklets:externalNativeBuildRelease")
+    def workletsBuildTask = ":react-native-worklets:externalNativeBuild${workletsVariantName.capitalize()}"
+    dependsOn(workletsBuildTask)
     doFirst {
         if (srcTree.isEmpty()) {
             throw new GradleException("worklets .so not found for release under ${workletsPackageDir}")
@@ -113,6 +125,24 @@ def syncWorkletsSoRelease = tasks.register("syncWorkletsSoRelease", Copy) {
         dstBase.mkdirs()
         // Remove existing libs so copy is guaranteed to overwrite
         fileTree(dstBase).matching { include "**/libworklets.so" }.each { it.delete() }
+    }
+    doLast {
+        // Ensure pnpm real path also has the same .so files for reanimated linking
+        def pnpmRoots = fileTree(new File(appRootDir, "node_modules/.pnpm")) {
+            include "react-native-worklets@*/node_modules/react-native-worklets/package.json"
+        }.files.collect { it.parentFile }
+        if (!pnpmRoots.isEmpty()) {
+            pnpmRoots.each { pnpmRoot ->
+                def pnpmDstBase = new File(pnpmRoot, "android/build/intermediates/cmake/release/obj")
+                pnpmDstBase.mkdirs()
+                fileTree(dstBase).matching { include "**/libworklets.so" }.each { soFile ->
+                    def rel = soFile.parentFile.name + "/libworklets.so"
+                    def out = new File(pnpmDstBase, rel)
+                    out.parentFile.mkdirs()
+                    out.bytes = soFile.bytes
+                }
+            }
+        }
     }
 }
 

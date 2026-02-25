@@ -6,8 +6,8 @@ const chain = "solana:devnet";
 const endpoint = clusterApiUrl("devnet");
 
 const identity = {
-  name: "My Solana App",
-  uri: "https://mysolanaapp.com",
+  name: "Motus",
+  uri: "https://getmotus.xyz",
   icon: "favicon.png", // Must be a relative path to the uri above
 };
 
