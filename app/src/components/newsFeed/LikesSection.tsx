@@ -37,7 +37,7 @@ export function LikesSection({
                 key={p.id}
                 style={{ marginLeft: i > 0 ? -6 : 0, zIndex: 5 - i }}
               >
-                <MiniAvatar uri={p.image} theme={theme} size={22} />
+                <MiniAvatar seed={p.username} theme={theme} size={22} />
               </View>
             ))}
           </View>

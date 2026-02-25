@@ -22,7 +22,13 @@ export function Header() {
   const { theme } = useContext(ThemeContext);
   const { walletAddress, setWalletAddress } = useContext(AppContext);
   const { isHotWalletFeatureEnabled } = useHotWallet();
-  const { profile, isLoading: profileLoading, hasProfile, isCreating, createProfile } = useProfile();
+  const {
+    profile,
+    isLoading: profileLoading,
+    hasProfile,
+    isCreating,
+    createProfile,
+  } = useProfile();
   const { disconnect, signMessage } = useMobileWallet();
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -93,7 +99,11 @@ export function Header() {
             onPress={() => navigation.navigate("NewsFeed" as never)}
             activeOpacity={0.7}
           >
-            <Ionicons name="newspaper-outline" size={18} color={theme.tintColor} />
+            <Ionicons
+              name="newspaper-outline"
+              size={18}
+              color={theme.tintColor}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -112,19 +122,13 @@ export function Header() {
             ) : hasProfile ? (
               <Ionicons name="person" size={16} color={theme.tintColor} />
             ) : (
-              <Ionicons name="person-add-outline" size={16} color={theme.tintColor} />
+              <Ionicons
+                name="person-add-outline"
+                size={16}
+                color={theme.tintColor}
+              />
             )}
           </TouchableOpacity>
-
-          {isHotWalletFeatureEnabled && (
-            <TouchableOpacity
-              style={styles.hotWalletButton}
-              onPress={() => navigation.getParent?.()?.navigate("HotWallet" as never)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="flame" size={18} color={theme.tintColor} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
@@ -165,7 +169,8 @@ export function Header() {
               <TouchableOpacity
                 style={[
                   styles.createButton,
-                  (!usernameInput.trim() || isSigning) && styles.createButtonDisabled,
+                  (!usernameInput.trim() || isSigning) &&
+                    styles.createButtonDisabled,
                 ]}
                 onPress={handleCreateProfile}
                 disabled={!usernameInput.trim() || isSigning}
@@ -227,14 +232,22 @@ export function Header() {
               </View>
 
               <View style={styles.profileDetailRow}>
-                <Ionicons name="wallet-outline" size={16} color={theme.mutedForegroundColor} />
+                <Ionicons
+                  name="wallet-outline"
+                  size={16}
+                  color={theme.mutedForegroundColor}
+                />
                 <Text style={styles.profileDetailText} numberOfLines={1}>
                   {walletAddress}
                 </Text>
               </View>
 
               <View style={styles.profileDetailRow}>
-                <Ionicons name="globe-outline" size={16} color={theme.mutedForegroundColor} />
+                <Ionicons
+                  name="globe-outline"
+                  size={16}
+                  color={theme.mutedForegroundColor}
+                />
                 <Text style={styles.profileDetailText}>
                   {profile?.namespace ?? "motus"}
                 </Text>

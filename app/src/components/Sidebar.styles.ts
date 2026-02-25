@@ -61,7 +61,7 @@ export const getStyles = (theme: any) =>
       letterSpacing: 0.5,
     },
     menuSection: {
-      flex: 1,
+      marginTop: 8,
     },
     menuItem: {
       flexDirection: "row",
