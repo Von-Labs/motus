@@ -23,10 +23,7 @@ import { debugDatabase } from '../utils/database'
 const models = [
   MODELS.claudeOpus,
   MODELS.claudeSonnet,
-  MODELS.claudeHaiku,
-  MODELS.gpt52,
-  MODELS.gpt5Mini,
-  MODELS.gemini
+  MODELS.claudeHaiku
 ]
 
 export function Settings() {
