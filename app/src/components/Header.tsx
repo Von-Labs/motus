@@ -90,7 +90,7 @@ export function Header() {
           </TouchableHighlight>
         </View>
 
-        <View style={styles.centerContainer}>
+        <View style={styles.centerContainer} pointerEvents="none">
           <Text style={styles.title}>Motus</Text>
         </View>
 
@@ -310,14 +310,18 @@ function getStyles(theme: any) {
       alignItems: "center",
       borderBottomWidth: 0,
       paddingHorizontal: 16,
+      position: "relative",
     },
     leftContainer: {
       width: 48,
       alignItems: "flex-start",
       justifyContent: "center",
+      zIndex: 1,
     },
     centerContainer: {
-      flex: 1,
+      position: "absolute",
+      left: 0,
+      right: 0,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -327,6 +331,8 @@ function getStyles(theme: any) {
       justifyContent: "center",
       flexDirection: "row",
       gap: 8,
+      marginLeft: "auto",
+      zIndex: 1,
     },
     profileButton: {
       width: 34,
