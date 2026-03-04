@@ -24,6 +24,8 @@ export interface IAppContext {
   setImageModel: Dispatch<SetStateAction<string>>
   imageModel: string,
   closeModal: () => void,
+  onboardingCompleted: boolean
+  setOnboardingCompleted: Dispatch<SetStateAction<boolean>>
   walletAddress: string | null
   setWalletAddress: Dispatch<SetStateAction<string | null>>
   sidebarOpen: boolean

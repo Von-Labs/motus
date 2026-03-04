@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useContext, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
 import { useHotWallet } from "../context/HotWalletContext";
@@ -12,9 +12,15 @@ import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 
 export function Sidebar(props: DrawerContentComponentProps) {
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, setWalletAddress, setCurrentConversationId } =
+  const {
+    walletAddress,
+    setWalletAddress,
+    setCurrentConversationId,
+    setOnboardingCompleted,
+  } =
     useContext(AppContext);
-  const { isHotWalletFeatureEnabled } = useHotWallet();
+  const { isHotWalletFeatureEnabled, isHotWalletActive, deleteHotWallet } =
+    useHotWallet();
   const { disconnect } = useMobileWallet();
   const styles = getStyles(theme);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
@@ -49,14 +55,56 @@ export function Sidebar(props: DrawerContentComponentProps) {
     props.navigation.closeDrawer();
   }
 
-  const handleDisconnect = async () => {
+  const performLogout = async (deleteHotWalletToo: boolean) => {
     try {
-      await disconnect();
-      setWalletAddress(null); // Clear wallet address to return to Welcome screen
+      if (deleteHotWalletToo && isHotWalletActive) {
+        await deleteHotWallet();
+      }
+      await disconnect().catch(() => {});
+      setWalletAddress(null);
+      setOnboardingCompleted(false);
+      setCurrentConversationId(null);
       props.navigation.closeDrawer();
     } catch (error) {
-      console.error("Failed to disconnect:", error);
+      console.error("Failed to logout:", error);
     }
+  };
+
+  const handleDisconnect = () => {
+    if (isHotWalletActive) {
+      Alert.alert(
+        "Logout",
+        "Do you also want to delete your hot wallet?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Keep hot wallet",
+            onPress: () => {
+              performLogout(false);
+            },
+          },
+          {
+            text: "Delete hot wallet",
+            style: "destructive",
+            onPress: () => {
+              performLogout(true);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          performLogout(false);
+        },
+      },
+    ]);
   };
 
   return (
@@ -212,14 +260,14 @@ export function Sidebar(props: DrawerContentComponentProps) {
         </ScrollView>
 
         {/* Disconnect Button */}
-        {walletAddress && (
+        {(walletAddress || isHotWalletActive) && (
           <View style={styles.footer}>
             <TouchableOpacity
               style={styles.disconnectButton}
               onPress={handleDisconnect}
             >
               <Ionicons name="log-out-outline" size={20} color="#ff4444" />
-              <Text style={styles.disconnectText}>Disconnect Wallet</Text>
+              <Text style={styles.disconnectText}>Logout</Text>
             </TouchableOpacity>
           </View>
         )}

@@ -35,9 +35,9 @@ const PAGES = [
   },
   {
     key: "connect",
-    title: "Connect with Solana Mobile",
-    subtitle: "Secure & native",
-    body: "You need to connect with Solana Mobile to use this app. Link your wallet once and the AI can help you execute swaps and manage your assets safely.",
+    title: "Choose your wallet path",
+    subtitle: "Required setup",
+    body: "Pick one setup option to continue: connect your wallet, or create a hot wallet for immediate in-app transactions.",
     icon: "📱",
   },
   {
@@ -100,14 +100,15 @@ function AnimatedPageContent({
 
 export function OnboardingScreen() {
   const { theme } = useContext(ThemeContext);
-  const { setWalletAddress } = useContext(AppContext);
+  const { setWalletAddress, setOnboardingCompleted } = useContext(AppContext);
   const { account, connect } = useMobileWallet();
   const { createHotWallet, isHotWalletFeatureEnabled } = useHotWallet();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showHotWalletOffer, setShowHotWalletOffer] = useState(false);
+  const [showWalletSetupChoice, setShowWalletSetupChoice] = useState(false);
+  const [connectingWallet, setConnectingWallet] = useState(false);
   const [creatingHotWallet, setCreatingHotWallet] = useState(false);
   const buttonScale = useRef(new Animated.Value(1)).current;
   const dotWidths = useRef(
@@ -140,26 +141,23 @@ export function OnboardingScreen() {
   }, [currentIndex, dotWidths]);
 
   const handleConnectWallet = async () => {
+    setConnectingWallet(true);
     try {
       await connect();
-      if (isHotWalletFeatureEnabled) {
-        setShowHotWalletOffer(true);
-      } else {
-        navigation.navigate("Main");
-      }
+      setOnboardingCompleted(true);
+      navigation.navigate("Main");
     } catch (error) {
       console.error("Failed to connect wallet:", error);
+    } finally {
+      setConnectingWallet(false);
     }
-  };
-
-  const handleSkipHotWallet = () => {
-    navigation.navigate("Main");
   };
 
   const handleCreateHotWallet = async () => {
     setCreatingHotWallet(true);
     try {
       await createHotWallet();
+      setOnboardingCompleted(true);
       navigation.navigate("Main");
     } catch (error) {
       console.error("Failed to create hot wallet:", error);
@@ -176,8 +174,8 @@ export function OnboardingScreen() {
       });
       setCurrentIndex(currentIndex + 1);
     } else {
-      // On last page, connect wallet
-      handleConnectWallet();
+      // On last page, let users choose wallet setup
+      setShowWalletSetupChoice(true);
     }
   };
 
@@ -201,35 +199,41 @@ export function OnboardingScreen() {
 
   const isLast = currentIndex === PAGES.length - 1;
 
-  if (showHotWalletOffer) {
+  if (showWalletSetupChoice) {
     return (
       <View style={styles.container}>
         <View style={[styles.gradient, { justifyContent: "center" }]}>
-          <Text style={styles.icon}>🔥</Text>
-          <Text style={styles.subtitle}>Optional</Text>
-          <Text style={styles.title}>Create a hot wallet?</Text>
-          <Text style={styles.body}>
-            Use a small in-app wallet for one-tap swaps and transfers. You can
-            fund it from your main wallet anytime.
-          </Text>
+          <Text style={styles.icon}>🔐</Text>
+          <Text style={styles.subtitle}>Wallet setup</Text>
+          <Text style={styles.title}>Choose how to start</Text>
+          <Text style={styles.body}>Choose one option to continue.</Text>
+
           <TouchableOpacity
-            style={[styles.button, { marginTop: 24 }]}
-            onPress={handleCreateHotWallet}
-            disabled={creatingHotWallet}
+            style={[styles.setupActionButton, { marginTop: 24 }]}
+            onPress={handleConnectWallet}
+            disabled={connectingWallet || creatingHotWallet}
           >
-            {creatingHotWallet ? (
+            {connectingWallet ? (
               <ActivityIndicator color={theme.tintTextColor} />
             ) : (
-              <Text style={styles.buttonText}>Create hot wallet</Text>
+              <Text style={styles.buttonText}>Connect wallet</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={handleSkipHotWallet}
-            disabled={creatingHotWallet}
-          >
-            <Text style={styles.skipButtonText}>Skip for now</Text>
-          </TouchableOpacity>
+
+          {isHotWalletFeatureEnabled && (
+            <TouchableOpacity
+              style={[styles.setupActionButton, { marginTop: 12 }]}
+              onPress={handleCreateHotWallet}
+              disabled={creatingHotWallet || connectingWallet}
+            >
+              {creatingHotWallet ? (
+                <ActivityIndicator color={theme.tintTextColor} />
+              ) : (
+                <Text style={styles.buttonText}>Create hot wallet</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
         </View>
       </View>
     );
@@ -295,7 +299,7 @@ export function OnboardingScreen() {
             style={[{ transform: [{ scale: buttonScale }] }, styles.button]}
           >
             <Text style={styles.buttonText}>
-              {isLast ? "Connect wallet" : "Next"}
+              {isLast ? "Continue" : "Next"}
             </Text>
           </Animated.View>
         </TouchableOpacity>
@@ -402,14 +406,14 @@ const getStyles = (theme: any, insets: { top: number; bottom: number }) =>
       letterSpacing: 1,
       textTransform: "uppercase",
     },
-    skipButton: {
-      marginTop: 16,
-      paddingVertical: 12,
+    setupActionButton: {
+      width: SCREEN_WIDTH * 0.8,
+      maxWidth: 320,
+      borderRadius: 14,
+      paddingVertical: 18,
       alignItems: "center",
-    },
-    skipButtonText: {
-      fontSize: 16,
-      fontFamily: theme.regularFont,
-      color: theme.mutedForegroundColor,
+      justifyContent: "center",
+      backgroundColor: theme.tintColor,
+      overflow: "hidden",
     },
   });
