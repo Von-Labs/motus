@@ -1,4 +1,5 @@
 import express from 'express'
+import cors from 'cors'
 import chatRouter from './chat/chatRouter'
 import imagesRouter from './images/imagesRouter'
 import jupiterSwapRouter from './jupiter/swapRouter'
@@ -18,6 +19,10 @@ console.log('🔑 Environment Check:', {
 
 const app = express()
 
+app.use(cors({
+  origin: ['https://app.getmotus.xyz', 'http://localhost:5173'],
+  credentials: true,
+}))
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(express.json({limit: '50mb'}))
