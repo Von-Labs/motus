@@ -23,6 +23,8 @@ const AppContext = createContext<IAppContext>({
   setSidebarOpen: () => null,
   currentConversationId: null,
   setCurrentConversationId: () => null,
+  hasUsageBalance: true,
+  refreshUsageBalance: async () => {},
 })
 
 export {

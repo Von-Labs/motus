@@ -33,7 +33,7 @@ import {
 import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { IMAGE_MODELS, MODELS } from "./constants";
+import { DOMAIN, IMAGE_MODELS, MODELS } from "./constants";
 import { FEATURE_FLAGS } from "./src/constants/featureFlags";
 import {
   AppBackground,
@@ -85,6 +85,7 @@ export default function App() {
   const [currentConversationId, setCurrentConversationId] = useState<
     number | null
   >(null);
+  const [hasUsageBalance, setHasUsageBalance] = useState<boolean>(true);
   const [fontsLoaded] = useFonts({
     "Inter-Regular": require("./assets/fonts/Inter_18pt-Regular.ttf"),
     "Inter-Medium": require("./assets/fonts/Inter_18pt-Medium.ttf"),
@@ -134,6 +135,38 @@ export default function App() {
       setIsStorageReady(true);
     }
   }
+
+  const checkUsageBalance = useCallback(async () => {
+    if (!walletAddress) {
+      setHasUsageBalance(true);
+      return;
+    }
+    try {
+      const response = await fetch(`${DOMAIN}/api/user/stats`, {
+        headers: { 'X-Wallet-Address': walletAddress },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const freeRemaining = data.stats?.freeRequestsRemaining ?? 0;
+      const usdcBalance = parseFloat(data.user?.usdc_balance || '0');
+      setHasUsageBalance(freeRemaining > 0 || usdcBalance > 0);
+    } catch (error) {
+      console.error('Failed to check usage balance:', error);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    checkUsageBalance();
+  }, [checkUsageBalance]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkUsageBalance();
+      }
+    });
+    return () => subscription.remove();
+  }, [checkUsageBalance]);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   function closeModal() {
@@ -200,6 +233,8 @@ export default function App() {
                 setSidebarOpen,
                 currentConversationId,
                 setCurrentConversationId,
+                hasUsageBalance,
+                refreshUsageBalance: checkUsageBalance,
               }}
             >
               <ThemeContext.Provider
