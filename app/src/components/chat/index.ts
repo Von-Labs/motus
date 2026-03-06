@@ -4,3 +4,4 @@ export { ChatEmptyState } from './ChatEmptyState';
 export { ChatMessageItem, type ChatMessage } from './ChatMessageItem';
 export { ChatMessageList } from './ChatMessageList';
 export { ShareBottomSheet, type ShareBottomSheetRef } from './ShareBottomSheet';
+export { UsageLimitBanner } from './UsageLimitBanner';

@@ -15,6 +15,7 @@ type ChatInputProps = {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
+  disabled?: boolean;
 };
 
 export function ChatInput({
@@ -22,6 +23,7 @@ export function ChatInput({
   value,
   onChangeText,
   onSend,
+  disabled = false,
 }: ChatInputProps) {
   const styles = useMemo(() => getStyles(theme), [theme]);
 
@@ -40,19 +42,21 @@ export function ChatInput({
         style={styles.container}
       >
         <TextInput
-          style={styles.input}
+          style={[styles.input, disabled && { opacity: 0.5 }]}
           onChangeText={onChangeText}
-          placeholder="Chat with Motus"
+          placeholder={disabled ? "Deposit USDC to continue chatting" : "Chat with Motus"}
           placeholderTextColor={theme.placeholderTextColor}
           value={value}
           multiline
+          editable={!disabled}
         />
         <TouchableHighlight
           underlayColor={"transparent"}
           activeOpacity={0.8}
-          onPress={onSend}
+          onPress={disabled ? undefined : onSend}
+          disabled={disabled}
         >
-          <View style={styles.chatButton}>
+          <View style={[styles.chatButton, disabled && { opacity: 0.4 }]}>
             <Ionicons
               name="arrow-up-outline"
               size={20}
