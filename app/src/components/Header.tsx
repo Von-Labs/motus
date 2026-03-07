@@ -4,6 +4,7 @@ import { useMobileWallet } from "@wallet-ui/react-native-web3js";
 import { useContext, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   StyleSheet,
@@ -21,8 +22,10 @@ import { MenuIcon } from "./MenuIcon";
 
 export function Header() {
   const { theme } = useContext(ThemeContext);
-  const { walletAddress, setWalletAddress } = useContext(AppContext);
-  const { isHotWalletFeatureEnabled } = useHotWallet();
+  const { walletAddress, setWalletAddress, setOnboardingCompleted } =
+    useContext(AppContext);
+  const { isHotWalletFeatureEnabled, isHotWalletActive, deleteHotWallet } =
+    useHotWallet();
   const {
     profile,
     isLoading: profileLoading,
@@ -39,14 +42,55 @@ export function Header() {
   const navigation = useNavigation<any>();
   const styles = getStyles(theme);
 
-  const handleDisconnect = async () => {
+  const performLogout = async (deleteHotWalletToo: boolean) => {
     try {
-      await disconnect();
+      if (deleteHotWalletToo && isHotWalletActive) {
+        await deleteHotWallet();
+      }
+      await disconnect().catch(() => {});
       setWalletAddress(null);
+      setOnboardingCompleted(false);
       setShowDisconnectModal(false);
     } catch (error) {
-      console.error("Failed to disconnect:", error);
+      console.error("Failed to logout:", error);
     }
+  };
+
+  const handleDisconnect = () => {
+    if (isHotWalletActive) {
+      Alert.alert(
+        "Logout",
+        "Do you also want to delete your hot wallet?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Keep hot wallet",
+            onPress: () => {
+              performLogout(false);
+            },
+          },
+          {
+            text: "Delete hot wallet",
+            style: "destructive",
+            onPress: () => {
+              performLogout(true);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          performLogout(false);
+        },
+      },
+    ]);
   };
 
   const handleProfilePress = () => {
@@ -291,7 +335,7 @@ export function Header() {
                 onPress={handleDisconnect}
               >
                 <Ionicons name="log-out-outline" size={20} color="#ff4444" />
-                <Text style={styles.modalDisconnectText}>Disconnect</Text>
+                <Text style={styles.modalDisconnectText}>Logout</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

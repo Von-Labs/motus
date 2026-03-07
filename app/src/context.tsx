@@ -15,12 +15,16 @@ const AppContext = createContext<IAppContext>({
   handlePresentModalPress: () => null,
   setImageModel: () => null,
   closeModal: () => null,
+  onboardingCompleted: false,
+  setOnboardingCompleted: () => null,
   walletAddress: null,
   setWalletAddress: () => null,
   sidebarOpen: false,
   setSidebarOpen: () => null,
   currentConversationId: null,
   setCurrentConversationId: () => null,
+  hasUsageBalance: true,
+  refreshUsageBalance: async () => {},
 })
 
 export {

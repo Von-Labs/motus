@@ -8,15 +8,32 @@ import {
 } from "@gorhom/bottom-sheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer, useNavigation } from "@react-navigation/native";
+import { useMobileWallet } from "@wallet-ui/react-native-web3js";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
+import * as LocalAuthentication from "expo-local-authentication";
 import * as SplashScreen from "expo-splash-screen";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { LogBox, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type SetStateAction,
+} from "react";
+import {
+  ActivityIndicator,
+  AppState,
+  LogBox,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { IMAGE_MODELS, MODELS } from "./constants";
+import { DOMAIN, IMAGE_MODELS, MODELS } from "./constants";
 import { FEATURE_FLAGS } from "./src/constants/featureFlags";
 import {
   AppBackground,
@@ -27,7 +44,7 @@ import {
 import { TopUpBottomSheet } from "./src/components/hotWallet/TopUpBottomSheet";
 import { Drawer, Stack } from "./src/constants/navigation";
 import { AppContext, ThemeContext } from "./src/context";
-import { HotWalletProvider } from "./src/context/HotWalletContext";
+import { HotWalletProvider, useHotWallet } from "./src/context/HotWalletContext";
 import { ProfileProvider } from "./src/context/ProfileContext";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
@@ -61,11 +78,14 @@ export default function App() {
     IMAGE_MODELS.nanoBanana.label,
   );
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [isStorageReady, setIsStorageReady] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<
     number | null
   >(null);
+  const [hasUsageBalance, setHasUsageBalance] = useState<boolean>(true);
   const [fontsLoaded] = useFonts({
     "Inter-Regular": require("./assets/fonts/Inter_18pt-Regular.ttf"),
     "Inter-Medium": require("./assets/fonts/Inter_18pt-Medium.ttf"),
@@ -111,8 +131,42 @@ export default function App() {
       console.log("🚀 === APP READY ===");
     } catch (err) {
       console.log("❌ ERROR configuring storage:", err);
+    } finally {
+      setIsStorageReady(true);
     }
   }
+
+  const checkUsageBalance = useCallback(async () => {
+    if (!walletAddress) {
+      setHasUsageBalance(true);
+      return;
+    }
+    try {
+      const response = await fetch(`${DOMAIN}/api/user/stats`, {
+        headers: { 'X-Wallet-Address': walletAddress },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const freeRemaining = data.stats?.freeRequestsRemaining ?? 0;
+      const usdcBalance = parseFloat(data.user?.usdc_balance || '0');
+      setHasUsageBalance(freeRemaining > 0 || usdcBalance > 0);
+    } catch (error) {
+      console.error('Failed to check usage balance:', error);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    checkUsageBalance();
+  }, [checkUsageBalance]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkUsageBalance();
+      }
+    });
+    return () => subscription.remove();
+  }, [checkUsageBalance]);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   function closeModal() {
@@ -143,17 +197,20 @@ export default function App() {
     setTheme(theme);
     AsyncStorage.setItem("rnai-theme", theme);
   }
+  function _setOnboardingCompleted(nextValue: SetStateAction<boolean>) {
+    setOnboardingCompleted(nextValue);
+  }
 
   const bottomSheetStyles = getBottomsheetStyles(getTheme(theme));
 
   // Hide splash screen when fonts are loaded
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
+    if (fontsLoaded && isStorageReady) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, isStorageReady]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !isStorageReady) return null;
 
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
@@ -168,12 +225,16 @@ export default function App() {
                 imageModel,
                 setImageModel: _setImageModel,
                 closeModal,
+                onboardingCompleted,
+                setOnboardingCompleted: _setOnboardingCompleted,
                 walletAddress,
                 setWalletAddress,
                 sidebarOpen,
                 setSidebarOpen,
                 currentConversationId,
                 setCurrentConversationId,
+                hasUsageBalance,
+                refreshUsageBalance: checkUsageBalance,
               }}
             >
               <ThemeContext.Provider
@@ -244,12 +305,89 @@ function SettingsFormSheetScreen() {
 }
 
 function RootNavigator() {
-  const { walletAddress } = useContext(AppContext);
+  const {
+    onboardingCompleted,
+    walletAddress,
+    setWalletAddress,
+  } = useContext(AppContext);
+  const { account } = useMobileWallet();
+  const { isHotWalletActive, isLoading: isHotWalletLoading } = useHotWallet();
+  const [isBiometricGateActive, setIsBiometricGateActive] = useState(false);
+  const appStateRef = useRef(AppState.currentState);
+  const prevRequireRef = useRef(false);
+
+  const hasConnectedWallet = Boolean(account?.address || walletAddress);
+  const hasCompletedOnboarding = onboardingCompleted || isHotWalletActive;
+  const requiresBiometricCheck =
+    hasCompletedOnboarding && (hasConnectedWallet || isHotWalletActive);
+
+  useEffect(() => {
+    if (account?.address) {
+      setWalletAddress(account.address.toString());
+    } else {
+      setWalletAddress(null);
+    }
+  }, [account, setWalletAddress]);
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding || isHotWalletLoading) return;
+    if (!requiresBiometricCheck) {
+      setIsBiometricGateActive(false);
+      prevRequireRef.current = false;
+      return;
+    }
+    if (!prevRequireRef.current) {
+      setIsBiometricGateActive(true);
+    }
+    prevRequireRef.current = true;
+  }, [hasCompletedOnboarding, isHotWalletLoading, requiresBiometricCheck]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const wasBackgrounded =
+        appStateRef.current === "background" || appStateRef.current === "inactive";
+      if (wasBackgrounded && nextState === "active" && requiresBiometricCheck) {
+        setIsBiometricGateActive(true);
+      }
+      appStateRef.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [requiresBiometricCheck]);
+
+  const handleBiometricAuthenticated = useCallback(() => {
+    setIsBiometricGateActive(false);
+  }, []);
+
+  if (!onboardingCompleted && isHotWalletLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <ActivityIndicator size="large" color="#020617" />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!walletAddress ? (
+      {!hasCompletedOnboarding ? (
         <Stack.Screen name="Onboarding" component={OnboardingWithBackground} />
+      ) : isBiometricGateActive ? (
+        <Stack.Screen name="BiometricGate">
+          {() => (
+            <BiometricGateScreen
+              onAuthenticated={handleBiometricAuthenticated}
+            />
+          )}
+        </Stack.Screen>
       ) : (
         <>
           <Stack.Screen name="Main" component={AppDrawer} />
@@ -276,6 +414,76 @@ function RootNavigator() {
         </>
       )}
     </Stack.Navigator>
+  );
+}
+
+function BiometricGateScreen({
+  onAuthenticated,
+}: {
+  onAuthenticated: () => void;
+}) {
+  const { theme } = useContext(ThemeContext);
+  const styles = getBiometricGateStyles(theme);
+  const [isChecking, setIsChecking] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const runBiometricCheck = useCallback(async () => {
+    setErrorMessage(null);
+    setIsChecking(true);
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      // If biometrics cannot be used on this device, bypass gate to avoid loops.
+      if (!hasHardware || !isEnrolled) {
+        onAuthenticated();
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Unlock Motus",
+        cancelLabel: "Cancel",
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        onAuthenticated();
+        return;
+      }
+
+      setErrorMessage("Biometric check was not completed.");
+    } catch (error) {
+      console.error("Biometric auth failed:", error);
+      setErrorMessage("Unable to verify biometrics. Please try again.");
+    } finally {
+      setIsChecking(false);
+    }
+  }, [onAuthenticated]);
+
+  useEffect(() => {
+    runBiometricCheck();
+  }, [runBiometricCheck]);
+
+  return (
+    <View style={styles.container}>
+      <Ionicons name="finger-print-outline" size={54} color={theme.textColor} />
+      <Text style={styles.title}>Biometric check</Text>
+      <Text style={styles.subtitle}>
+        Confirm your identity to continue to Motus.
+      </Text>
+      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={runBiometricCheck}
+        disabled={isChecking}
+      >
+        {isChecking ? (
+          <ActivityIndicator size="small" color={theme.tintTextColor} />
+        ) : (
+          <Text style={styles.buttonText}>Try again</Text>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -405,6 +613,51 @@ const getBottomsheetStyles = (theme) =>
       borderRadius: 999,
       backgroundColor: theme.borderColor,
       marginVertical: 8,
+    },
+  });
+
+const getBiometricGateStyles = (theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 24,
+      gap: 10,
+      backgroundColor: theme.backgroundColor,
+    },
+    title: {
+      fontSize: 22,
+      color: theme.textColor,
+      fontFamily: theme.displaySemiBold || "Lora-SemiBold",
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.mutedForegroundColor,
+      textAlign: "center",
+      fontFamily: theme.regularFont,
+      lineHeight: 20,
+    },
+    error: {
+      marginTop: 8,
+      fontSize: 13,
+      color: "#b91c1c",
+      fontFamily: theme.mediumFont,
+      textAlign: "center",
+    },
+    button: {
+      marginTop: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 999,
+      backgroundColor: theme.tintColor,
+      minWidth: 160,
+      alignItems: "center",
+    },
+    buttonText: {
+      color: theme.tintTextColor,
+      fontFamily: theme.semiBoldFont,
+      fontSize: 14,
     },
   });
 

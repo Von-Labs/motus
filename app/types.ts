@@ -24,10 +24,14 @@ export interface IAppContext {
   setImageModel: Dispatch<SetStateAction<string>>
   imageModel: string,
   closeModal: () => void,
+  onboardingCompleted: boolean
+  setOnboardingCompleted: Dispatch<SetStateAction<boolean>>
   walletAddress: string | null
   setWalletAddress: Dispatch<SetStateAction<string | null>>
   sidebarOpen: boolean
   setSidebarOpen: Dispatch<SetStateAction<boolean>>
   currentConversationId: number | null
   setCurrentConversationId: Dispatch<SetStateAction<number | null>>
+  hasUsageBalance: boolean
+  refreshUsageBalance: () => Promise<void>
 }

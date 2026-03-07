@@ -15,6 +15,7 @@ import {
   ChatMessageList,
   ShareBottomSheet,
   type ShareBottomSheetRef,
+  UsageLimitBanner,
 } from "../components";
 import { AppContext, ThemeContext } from "../context";
 import { useHotWallet } from "../context/HotWalletContext";
@@ -93,6 +94,8 @@ export function Chat() {
     walletAddress,
     currentConversationId,
     setCurrentConversationId,
+    hasUsageBalance,
+    refreshUsageBalance,
   } = useContext(AppContext);
   const {
     isHotWalletActive,
@@ -175,6 +178,7 @@ export function Chat() {
 
   async function chat() {
     if (!input) return;
+    if (!hasUsageBalance) return;
     Keyboard.dismiss();
 
     // Clear any previous tooling steps
@@ -754,10 +758,15 @@ Always confirm the wallet address before performing any transactions.`;
 
           // Auto-save with direct data instead of reading from state
           autoSaveConversation(messageArray, modelLabel);
+          refreshUsageBalance();
         }
       } else if (event.type === "error") {
         console.error("Connection error:", event.message);
         setLoading(false);
+        // Check for 402 - insufficient balance
+        if (event.xhrStatus === 402) {
+          refreshUsageBalance();
+        }
       } else if (event.type === "exception") {
         console.error("Error:", event.message, event.error);
         setLoading(false);
@@ -871,12 +880,18 @@ Always confirm the wallet address before performing any transactions.`;
           onShare={handleShare}
         />
         <View style={layoutStyles.chatInputFloating}>
-          <ChatInput
-            theme={theme}
-            value={input}
-            onChangeText={setInput}
-            onSend={chat}
-          />
+          {!hasUsageBalance ? (
+            <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
+              <UsageLimitBanner theme={theme} />
+            </View>
+          ) : (
+            <ChatInput
+              theme={theme}
+              value={input}
+              onChangeText={setInput}
+              onSend={chat}
+            />
+          )}
         </View>
       </View>
       <ShareBottomSheet ref={shareSheetRef} />
