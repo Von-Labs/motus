@@ -80,7 +80,9 @@ export const claudeWithTools = asyncHandler(
       })
 
       const { messages, model, systemPrompt }: RequestBody = req.body
-      const modelConfig = models[model]
+      // Force Haiku for free requests, use UI-selected model for paid
+      const effectiveModel = req.isFreeRequest ? 'claudeHaiku' : model
+      const modelConfig = models[effectiveModel]
       const walletAddress = req.headers['x-wallet-address'] as string
 
       if (!modelConfig) {
