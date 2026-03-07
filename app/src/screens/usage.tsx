@@ -8,13 +8,14 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { ThemeContext, AppContext } from '../context'
+import { useAlert } from '../context/AlertContext'
 import { useHotWallet } from '../context/HotWalletContext'
-import { signAndSendTransactionFromBase64 } from '../utils/transactionSigner'
+import { signAndSendTransactionFromBase64, UserCancelledError } from '../utils/transactionSigner'
 import { DOMAIN } from '../../constants'
+import { reportErrorToDiscord } from '../utils/errorReporter'
 
 const MIN_DEPOSIT = 5
 
@@ -51,7 +52,8 @@ interface UsageRecord {
 
 export function Usage() {
   const { theme } = useContext(ThemeContext)
-  const { walletAddress } = useContext(AppContext)
+  const { showAlert } = useAlert()
+  const { walletAddress, refreshUsageBalance } = useContext(AppContext)
   const {
     isHotWalletActive,
     publicKey: hotWalletPublicKey,
@@ -113,6 +115,7 @@ export function Usage() {
       setUsage(usageData.usage || [])
     } catch (err: any) {
       setError(err.message)
+      reportErrorToDiscord(err.message, { source: 'Usage > fetchData', wallet: depositWalletAddress }).catch(() => {})
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -132,13 +135,13 @@ export function Usage() {
    */
   const handleDeposit = async () => {
     if (!depositWalletAddress) {
-      Alert.alert('Error', 'No wallet connected')
+      showAlert({ title: 'Error', message: 'No wallet connected' })
       return
     }
 
     const amount = parseFloat(depositAmount)
     if (isNaN(amount) || amount < MIN_DEPOSIT) {
-      Alert.alert('Error', `Minimum deposit is $${MIN_DEPOSIT} USDC`)
+      showAlert({ title: 'Error', message: `Minimum deposit is $${MIN_DEPOSIT} USDC` })
       return
     }
 
@@ -189,13 +192,16 @@ export function Usage() {
         throw new Error(result.message || 'Deposit verification failed')
       }
 
-      Alert.alert(
-        'Success',
-        `Deposited $${result.amount?.toFixed(2)} USDC successfully!`,
-        [{ text: 'OK', onPress: () => { setShowDeposit(false); fetchData() } }]
-      )
+      refreshUsageBalance()
+      showAlert({
+        title: 'Success',
+        message: `Deposited $${result.amount?.toFixed(2)} USDC successfully!`,
+        buttons: [{ text: 'OK', onPress: () => { setShowDeposit(false); fetchData() } }],
+      })
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Deposit failed')
+      if (err instanceof UserCancelledError) return
+      showAlert({ title: 'Error', message: err.message || 'Deposit failed' })
+      reportErrorToDiscord(err.message || 'Deposit failed', { source: 'Usage > handleDeposit', wallet: depositWalletAddress }).catch(() => {})
     } finally {
       setDepositing(false)
     }

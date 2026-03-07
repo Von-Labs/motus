@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { reportErrorToDiscord } from '../../utils/errorReporter'
 import { TapestryService } from './tapestryService'
 import { verifyWalletSignature } from '../../utils/verifyWallet'
 
@@ -115,6 +116,7 @@ export async function handleToolCall(
     }
   } catch (error) {
     console.error(`Error in Tapestry tool ${toolName}:`, error)
+    reportErrorToDiscord(error instanceof Error ? error.message : String(error), { source: `Tapestry > ${toolName}` }).catch(() => {})
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

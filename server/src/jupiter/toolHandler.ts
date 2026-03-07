@@ -1,4 +1,5 @@
 import { JupiterService } from './jupiterService'
+import { reportErrorToDiscord } from '../utils/errorReporter'
 
 // Tool Handler - Execute tool calls from Claude
 export async function handleToolCall(toolName: string, toolInput: any) {
@@ -103,6 +104,7 @@ export async function handleToolCall(toolName: string, toolInput: any) {
       error: error.message,
       stack: error.stack
     })
+    reportErrorToDiscord(error.message || String(error), { source: `Jupiter > ${toolName}` }).catch(() => {})
     return {
       error: true,
       message: error.message || 'Tool execution failed',

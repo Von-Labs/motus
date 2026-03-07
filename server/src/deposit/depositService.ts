@@ -4,6 +4,7 @@ import {
   Transaction,
   ParsedTransactionWithMeta,
 } from '@solana/web3.js';
+import { reportErrorToDiscord } from '../utils/errorReporter';
 import {
   createAssociatedTokenAccountIdempotentInstruction,
   createTransferCheckedInstruction,
@@ -183,6 +184,7 @@ export async function verifyDeposit(signature: string): Promise<DepositVerificat
     };
   } catch (err: any) {
     console.error('Error verifying deposit:', err);
+    reportErrorToDiscord(err.message || String(err), { source: 'depositService > verifyDeposit' }).catch(() => {});
     return { valid: false, error: err.message || 'Failed to verify transaction' };
   }
 }

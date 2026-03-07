@@ -24,6 +24,7 @@ const AppContext = createContext<IAppContext>({
   currentConversationId: null,
   setCurrentConversationId: () => null,
   hasUsageBalance: true,
+  setHasUsageBalance: () => null,
   refreshUsageBalance: async () => {},
 })
 

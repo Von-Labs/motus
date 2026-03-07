@@ -5,12 +5,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Linking,
-  Alert,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useContext, useState, useEffect } from "react";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { ThemeContext } from "../context";
+import { useAlert } from "../context/AlertContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getWalletTransactionById, WalletTransaction } from "../utils/database";
 import { formatDate, getTypeIcon, getTypeLabel, formatAmountDisplay } from "../utils/transactionHelpers";
@@ -21,6 +21,7 @@ type TransactionDetailParams = { transactionId?: number };
 
 export function TransactionDetail() {
   const { theme } = useContext(ThemeContext);
+  const { showAlert } = useAlert();
   const route = useRoute();
   const navigation = useNavigation();
   const transactionId = (route.params as TransactionDetailParams)?.transactionId;
@@ -82,7 +83,7 @@ export function TransactionDetail() {
 
   async function copySignature(signature: string) {
     await Clipboard.setStringAsync(signature);
-    Alert.alert("Copied", "Transaction signature copied to clipboard");
+    showAlert({ title: "Copied", message: "Transaction signature copied to clipboard" });
   }
 
   function openSolscan(signature: string) {

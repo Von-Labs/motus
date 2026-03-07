@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
-import { Alert } from "react-native";
 import { DOMAIN } from "../../constants";
 import { AppContext } from "../context";
+import { useAlert } from "./AlertContext";
 import { getAvatarUrl } from "../utils/avatar";
+import { reportErrorToDiscord } from "../utils/errorReporter";
 
 interface TapestryProfile {
   id: string;
@@ -66,6 +67,7 @@ const ProfileContext = createContext<ProfileContextType>({
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { walletAddress } = useContext(AppContext);
+  const { showAlert } = useAlert();
   const queryClient = useQueryClient();
 
   const queryKey = ["tapestry", "profile", walletAddress];
@@ -79,6 +81,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         const errText = await res.text();
         console.error("❌ Fetch profile error:", res.status, errText);
+        reportErrorToDiscord(`Fetch profile: ${res.status} ${errText}`, { source: 'ProfileContext > queryFn', wallet: walletAddress }).catch(() => {});
         throw new Error(`Failed to fetch profile: ${res.status}`);
       }
       const data = await res.json();
@@ -132,7 +135,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     },
     onError: (error: Error) => {
       console.error("❌ Create profile mutation error:", error);
-      Alert.alert("Error", error.message);
+      reportErrorToDiscord(error.message, { source: 'ProfileContext > createProfile', wallet: walletAddress }).catch(() => {});
+      showAlert({ title: "Error", message: error.message });
     },
   });
 
@@ -226,6 +230,7 @@ export function useContentLikes(contentId: string | undefined) {
 }
 
 export function useLikeMutation() {
+  const { showAlert } = useAlert();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -254,12 +259,13 @@ export function useLikeMutation() {
       queryClient.invalidateQueries({ queryKey: ["tapestry", "contents"] });
     },
     onError: (error: Error) => {
-      Alert.alert("Error", error.message);
+      showAlert({ title: "Error", message: error.message });
     },
   });
 }
 
 export function useCommentMutation() {
+  const { showAlert } = useAlert();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -290,7 +296,7 @@ export function useCommentMutation() {
       queryClient.invalidateQueries({ queryKey: ["tapestry", "contents"] });
     },
     onError: (error: Error) => {
-      Alert.alert("Error", error.message);
+      showAlert({ title: "Error", message: error.message });
     },
   });
 }

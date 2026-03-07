@@ -1,4 +1,5 @@
 import { buildTransferTransaction } from './transferService'
+import { reportErrorToDiscord } from '../utils/errorReporter'
 
 export async function handleToolCall(toolName: string, toolInput: any) {
   try {
@@ -20,6 +21,7 @@ export async function handleToolCall(toolName: string, toolInput: any) {
       tool: toolName,
       error: error.message
     })
+    reportErrorToDiscord(error.message || String(error), { source: `Send > ${toolName}` }).catch(() => {})
     return {
       error: true,
       message: error.message || 'Send tool execution failed'

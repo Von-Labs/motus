@@ -4,7 +4,6 @@ import { useMobileWallet } from "@wallet-ui/react-native-web3js";
 import { useContext, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   StyleSheet,
@@ -15,10 +14,12 @@ import {
   View,
 } from "react-native";
 import { AppContext, ThemeContext } from "../../src/context";
+import { useAlert } from "../context/AlertContext";
 import { useHotWallet } from "../../src/context/HotWalletContext";
 import { useProfile } from "../../src/context/ProfileContext";
 import { getAvatarUrl } from "../utils/avatar";
 import { MenuIcon } from "./MenuIcon";
+import { reportErrorToDiscord } from "../utils/errorReporter";
 
 export function Header() {
   const { theme } = useContext(ThemeContext);
@@ -34,6 +35,7 @@ export function Header() {
     createProfile,
   } = useProfile();
   const { disconnect, signMessage } = useMobileWallet();
+  const { showAlert } = useAlert();
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -51,46 +53,34 @@ export function Header() {
       setWalletAddress(null);
       setOnboardingCompleted(false);
       setShowDisconnectModal(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to logout:", error);
+      reportErrorToDiscord(error?.message || String(error), { source: 'Header > performLogout', wallet: walletAddress }).catch(() => {});
     }
   };
 
   const handleDisconnect = () => {
     if (isHotWalletActive) {
-      Alert.alert(
-        "Logout",
-        "Do you also want to delete your hot wallet?",
-        [
+      showAlert({
+        title: "Logout",
+        message: "Do you also want to delete your hot wallet?",
+        buttons: [
           { text: "Cancel", style: "cancel" },
-          {
-            text: "Keep hot wallet",
-            onPress: () => {
-              performLogout(false);
-            },
-          },
-          {
-            text: "Delete hot wallet",
-            style: "destructive",
-            onPress: () => {
-              performLogout(true);
-            },
-          },
+          { text: "Keep hot wallet", onPress: () => performLogout(false) },
+          { text: "Delete hot wallet", style: "destructive", onPress: () => performLogout(true) },
         ],
-      );
+      });
       return;
     }
 
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: () => {
-          performLogout(false);
-        },
-      },
-    ]);
+    showAlert({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      buttons: [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: () => performLogout(false) },
+      ],
+    });
   };
 
   const handleProfilePress = () => {
@@ -113,8 +103,9 @@ export function Header() {
       await signMessage(messageBytes);
       createProfile({ username });
       setShowCreateModal(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sign/create failed:", error);
+      reportErrorToDiscord(error?.message || String(error), { source: 'Header > handleCreateProfile', wallet: walletAddress }).catch(() => {});
     } finally {
       setIsSigning(false);
     }
