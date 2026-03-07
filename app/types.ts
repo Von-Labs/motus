@@ -33,5 +33,6 @@ export interface IAppContext {
   currentConversationId: number | null
   setCurrentConversationId: Dispatch<SetStateAction<number | null>>
   hasUsageBalance: boolean
+  setHasUsageBalance: Dispatch<SetStateAction<boolean>>
   refreshUsageBalance: () => Promise<void>
 }

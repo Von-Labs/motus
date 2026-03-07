@@ -6,6 +6,8 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   ScrollView,
+  Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import "react-native-get-random-values";
@@ -13,13 +15,15 @@ import { v4 as uuid } from "uuid";
 import {
   ChatInput,
   ChatMessageList,
+  ReportErrorBottomSheet,
+  type ReportErrorBottomSheetRef,
   ShareBottomSheet,
   type ShareBottomSheetRef,
   UsageLimitBanner,
 } from "../components";
 import { AppContext, ThemeContext } from "../context";
 import { useHotWallet } from "../context/HotWalletContext";
-import { getChatType, getEventSource, getFirstNCharsOrLess } from "../utils";
+import { getEventSource, getFirstNCharsOrLess } from "../utils";
 import {
   BLE_PROTOCOL_MESSAGE,
   addBleProtocolListener,
@@ -41,6 +45,7 @@ import {
   isSwapTransaction,
   isTriggerOrderTransaction,
 } from "../utils/swapHandler";
+import { UserCancelledError } from "../utils/transactionSigner";
 import {
   formatTapestryActionDetails,
   handleTapestryAction,
@@ -51,11 +56,20 @@ import type { ChatState } from "./chat/types";
 import { createEmptyChatState } from "./chat/types";
 import { getChatStyles } from "./chat/chat.styles";
 
+function isUsageLimitError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes("insufficient balance") || lower.includes("usage limit");
+}
+
+
+
 export function Chat() {
   const [loading, setLoading] = useState<boolean>(false);
   const [input, setInput] = useState<string>("");
+  const [lastError, setLastError] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const shareSheetRef = useRef<ShareBottomSheetRef>(null);
+  const reportErrorSheetRef = useRef<ReportErrorBottomSheetRef>(null);
   const { showActionSheetWithOptions } = useActionSheet();
 
   // Track pending swap transaction
@@ -95,6 +109,7 @@ export function Chat() {
     currentConversationId,
     setCurrentConversationId,
     hasUsageBalance,
+    setHasUsageBalance,
     refreshUsageBalance,
   } = useContext(AppContext);
   const {
@@ -180,187 +195,13 @@ export function Chat() {
     if (!input) return;
     if (!hasUsageBalance) return;
     Keyboard.dismiss();
+    setLastError(null);
 
     // Clear any previous tooling steps
     setCurrentToolingSteps([]);
 
-    if (chatType.label.includes("claude")) {
-      generateClaudeResponse(input);
-    } else if (chatType.label.includes("gpt")) {
-      generateGptResponse();
-    } else if (chatType.label.includes("gemini")) {
-      generateGeminiResponse();
-    }
+    generateClaudeResponse(input);
   }
-  async function generateGptResponse() {
-    if (!input) return;
-    Keyboard.dismiss();
-    let localResponse = "";
-    const modelLabel = chatType.label;
-    const currentState = getChatState(modelLabel);
-
-    let messageArray = [
-      ...currentState.messages,
-      {
-        user: input,
-      },
-    ] as [{ user: string; assistant?: string }];
-
-    updateChatState(modelLabel, (prev) => ({
-      ...prev,
-      messages: JSON.parse(JSON.stringify(messageArray)),
-    }));
-
-    setLoading(true);
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({
-        animated: true,
-      });
-    }, 1);
-    setInput("");
-
-    const messages = messageArray.reduce((acc: any[], message) => {
-      acc.push({ role: "user", content: message.user });
-      if (message.assistant) {
-        acc.push({ role: "assistant", content: message.assistant });
-      }
-      return acc;
-    }, []);
-
-    const eventSourceArgs = {
-      body: {
-        messages,
-        model: chatType.label,
-      },
-      type: getChatType(chatType),
-      walletAddress,
-    };
-
-    const es = await getEventSource(eventSourceArgs);
-
-    const listener = (event) => {
-      if (event.type === "open") {
-        console.log("Open SSE connection.");
-        setLoading(false);
-      } else if (event.type === "message") {
-        if (event.data !== "[DONE]") {
-          if (localResponse.length < 850) {
-            scrollViewRef.current?.scrollToEnd({
-              animated: true,
-            });
-          }
-          const data = JSON.parse(event.data);
-          if (typeof data === "string") {
-            localResponse = localResponse + data;
-          } else if (data?.content) {
-            localResponse = localResponse + data.content;
-          }
-          messageArray[messageArray.length - 1].assistant = localResponse;
-          updateChatState(modelLabel, (prev) => ({
-            ...prev,
-            messages: JSON.parse(JSON.stringify(messageArray)),
-          }));
-        } else {
-          setLoading(false);
-          es.close();
-          // Auto-save conversation after response completes
-          autoSaveConversation(messageArray, modelLabel);
-        }
-      } else if (event.type === "error") {
-        console.error("Connection error:", event.message);
-        setLoading(false);
-      } else if (event.type === "exception") {
-        console.error("Error:", event.message, event.error);
-        setLoading(false);
-      }
-    };
-
-    es.addEventListener("open", listener);
-    es.addEventListener("message", listener);
-    es.addEventListener("error", listener);
-  }
-  async function generateGeminiResponse() {
-    if (!input) return;
-    Keyboard.dismiss();
-    let localResponse = "";
-    const modelLabel = chatType.label;
-    const currentState = getChatState(modelLabel);
-    const geminiInput = `${input}`;
-
-    let messageArray = [
-      ...currentState.messages,
-      {
-        user: input,
-      },
-    ] as [{ user: string; assistant?: string }];
-
-    updateChatState(modelLabel, (prev) => ({
-      ...prev,
-      messages: JSON.parse(JSON.stringify(messageArray)),
-    }));
-
-    setLoading(true);
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({
-        animated: true,
-      });
-    }, 1);
-    setInput("");
-
-    const eventSourceArgs = {
-      body: {
-        prompt: geminiInput,
-        model: chatType.label,
-      },
-      type: getChatType(chatType),
-      walletAddress,
-    };
-
-    const es = await getEventSource(eventSourceArgs);
-
-    const listener = (event) => {
-      if (event.type === "open") {
-        console.log("Open SSE connection.");
-        setLoading(false);
-      } else if (event.type === "message") {
-        if (event.data !== "[DONE]") {
-          if (localResponse.length < 850) {
-            scrollViewRef.current?.scrollToEnd({
-              animated: true,
-            });
-          }
-
-          const data = event.data;
-          localResponse = localResponse + JSON.parse(data);
-          messageArray[messageArray.length - 1].assistant = localResponse;
-          updateChatState(modelLabel, (prev) => ({
-            ...prev,
-            messages: JSON.parse(JSON.stringify(messageArray)),
-          }));
-        } else {
-          setLoading(false);
-          updateChatState(modelLabel, (prev) => ({
-            ...prev,
-            apiMessages: `${prev.apiMessages}\n\nPrompt: ${input}\n\nResponse:${localResponse}`,
-          }));
-          es.close();
-          // Auto-save conversation after response completes
-          autoSaveConversation(messageArray, modelLabel);
-        }
-      } else if (event.type === "error") {
-        console.error("Connection error:", event.message);
-        setLoading(false);
-      } else if (event.type === "exception") {
-        console.error("Error:", event.message, event.error);
-        setLoading(false);
-      }
-    };
-
-    es.addEventListener("open", listener);
-    es.addEventListener("message", listener);
-    es.addEventListener("error", listener);
-  }
-
   async function generateClaudeResponse(input) {
     // if (!input) return;
     Keyboard.dismiss();
@@ -520,12 +361,15 @@ Always confirm the wallet address before performing any transactions.`;
                     setPendingSwap(null);
                   })
                   .catch((error) => {
+                    if (error instanceof UserCancelledError) {
+                      setPendingSwap(null);
+                      return;
+                    }
                     console.error("Swap failed:", error);
                     localResponse =
                       localResponse +
                       `❌ **Swap failed:** ${error.message}\n\n`;
 
-                    // Update message with error
                     messageArray[messageArray.length - 1].assistant =
                       localResponse;
                     updateChatState(modelLabel, (prev) => ({
@@ -569,12 +413,12 @@ Always confirm the wallet address before performing any transactions.`;
                     }));
                   })
                   .catch((error) => {
+                    if (error instanceof UserCancelledError) return;
                     console.error("Trigger order failed:", error);
                     localResponse =
                       localResponse +
                       `❌ **Order creation failed:** ${error.message}\n\n`;
 
-                    // Update message with error
                     messageArray[messageArray.length - 1].assistant =
                       localResponse;
                     updateChatState(modelLabel, (prev) => ({
@@ -617,12 +461,12 @@ Always confirm the wallet address before performing any transactions.`;
                     }));
                   })
                   .catch((error) => {
+                    if (error instanceof UserCancelledError) return;
                     console.error("Cancel order failed:", error);
                     localResponse =
                       localResponse +
                       `❌ **Cancellation failed:** ${error.message}\n\n`;
 
-                    // Update message with error
                     messageArray[messageArray.length - 1].assistant =
                       localResponse;
                     updateChatState(modelLabel, (prev) => ({
@@ -659,6 +503,7 @@ Always confirm the wallet address before performing any transactions.`;
                     }));
                   })
                   .catch((error) => {
+                    if (error instanceof UserCancelledError) return;
                     console.error("Send failed:", error);
                     localResponse =
                       localResponse +
@@ -699,6 +544,7 @@ Always confirm the wallet address before performing any transactions.`;
                     }));
                   })
                   .catch((error) => {
+                    if (error instanceof UserCancelledError) return;
                     console.error("Tapestry action failed:", error);
                     localResponse =
                       localResponse +
@@ -763,13 +609,21 @@ Always confirm the wallet address before performing any transactions.`;
       } else if (event.type === "error") {
         console.error("Connection error:", event.message);
         setLoading(false);
-        // Check for 402 - insufficient balance
-        if (event.xhrStatus === 402) {
-          refreshUsageBalance();
+        const msg = event.message || "Connection error";
+        if (isUsageLimitError(msg)) {
+          setHasUsageBalance(false);
+        } else {
+          setLastError(msg);
         }
       } else if (event.type === "exception") {
         console.error("Error:", event.message, event.error);
         setLoading(false);
+        const msg = event.message || "An error occurred";
+        if (isUsageLimitError(msg)) {
+          setHasUsageBalance(false);
+        } else {
+          setLastError(msg);
+        }
       }
     };
     es.addEventListener("open", listener);
@@ -880,6 +734,33 @@ Always confirm the wallet address before performing any transactions.`;
           onShare={handleShare}
         />
         <View style={layoutStyles.chatInputFloating}>
+          {lastError && hasUsageBalance && (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8, alignItems: 'center' }}>
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: '#ff444420',
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: '#ff444440',
+                }}
+                onPress={() => {
+                  reportErrorSheetRef.current?.present(lastError, {
+                    wallet: walletAddress,
+                    model: chatType.label,
+                  });
+                }}
+              >
+                <Text style={{ color: '#ff4444', fontSize: 13, fontFamily: theme.semiBoldFont }}>
+                  Report Error
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {!hasUsageBalance ? (
             <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
               <UsageLimitBanner theme={theme} />
@@ -895,6 +776,7 @@ Always confirm the wallet address before performing any transactions.`;
         </View>
       </View>
       <ShareBottomSheet ref={shareSheetRef} />
+      <ReportErrorBottomSheet ref={reportErrorSheetRef} onDismiss={() => setLastError(null)} />
     </KeyboardAvoidingView>
   );
 }

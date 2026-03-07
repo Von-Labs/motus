@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext, ThemeContext } from "../../context";
 import { useHotWallet } from "../../context/HotWalletContext";
+import { reportErrorToDiscord } from "../../utils/errorReporter";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -146,8 +147,9 @@ export function OnboardingScreen() {
       await connect();
       setOnboardingCompleted(true);
       navigation.navigate("Main");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to connect wallet:", error);
+      reportErrorToDiscord(error?.message || String(error), { source: 'Onboarding > handleConnectWallet' }).catch(() => {});
     } finally {
       setConnectingWallet(false);
     }
@@ -159,8 +161,9 @@ export function OnboardingScreen() {
       await createHotWallet();
       setOnboardingCompleted(true);
       navigation.navigate("Main");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create hot wallet:", error);
+      reportErrorToDiscord(error?.message || String(error), { source: 'Onboarding > handleCreateHotWallet' }).catch(() => {});
     } finally {
       setCreatingHotWallet(false);
     }

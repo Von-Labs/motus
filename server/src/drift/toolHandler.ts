@@ -1,4 +1,5 @@
 import { DriftService } from './driftService'
+import { reportErrorToDiscord } from '../utils/errorReporter'
 import type {
   PlaceLongOrderParams,
   PlaceShortOrderParams,
@@ -203,6 +204,7 @@ export async function handleToolCall(toolName: string, toolInput: any): Promise<
     }
   } catch (error) {
     console.error(`Error in Drift tool ${toolName}:`, error)
+    reportErrorToDiscord(error instanceof Error ? error.message : String(error), { source: `Drift > ${toolName}` }).catch(() => {})
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

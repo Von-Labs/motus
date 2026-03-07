@@ -29,6 +29,7 @@ import {
 } from "../utils/hotWallet";
 import { isHotWalletEnabled } from "../constants/featureFlags";
 import { DOMAIN } from "../../constants";
+import { reportErrorToDiscord } from "../utils/errorReporter";
 
 // Choose cluster for hot wallet: default devnet, can override via EXPO_PUBLIC_HOT_WALLET_CLUSTER
 const HOT_WALLET_CLUSTER_ENV =
@@ -222,9 +223,9 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
             const res = await fetch(`${DOMAIN}/api/hotwallet/blockhash`);
             if (!res.ok) {
               const text = await res.text();
-              throw new Error(
-                `Failed to get recent blockhash from server: ${text}`,
-              );
+              const err = `Failed to get recent blockhash from server: ${text}`;
+              reportErrorToDiscord(err, { source: 'HotWallet > signAndSendTransaction (blockhash)' }).catch(() => {});
+              throw new Error(err);
             }
             const data = await res.json();
             tx.recentBlockhash = data.blockhash;
@@ -244,7 +245,9 @@ export function HotWalletProvider({ children }: { children: ReactNode }) {
         });
         if (!res.ok) {
           const text = await res.text();
-          throw new Error(`Failed to send transaction via server: ${text}`);
+          const err = `Failed to send transaction via server: ${text}`;
+          reportErrorToDiscord(err, { source: 'HotWallet > signAndSendTransaction (send)' }).catch(() => {});
+          throw new Error(err);
         }
         const data = await res.json();
         const sig = data.signature as string;

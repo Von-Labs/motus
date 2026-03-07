@@ -45,6 +45,7 @@ import { TopUpBottomSheet } from "./src/components/hotWallet/TopUpBottomSheet";
 import { Drawer, Stack } from "./src/constants/navigation";
 import { AppContext, ThemeContext } from "./src/context";
 import { HotWalletProvider, useHotWallet } from "./src/context/HotWalletContext";
+import { AlertProvider } from "./src/context/AlertContext";
 import { ProfileProvider } from "./src/context/ProfileContext";
 import { DrawerScreenLayout, Main } from "./src/main";
 import {
@@ -60,6 +61,7 @@ import {
 import { AllChats } from "./src/screens/allChats";
 import * as themes from "./src/theme";
 import { initDatabase } from "./src/utils/database";
+import { isWalletInteractionActive } from "./src/utils/transactionSigner";
 import { queryClient } from "./src/utils/reactQuery";
 import { Model } from "./types";
 
@@ -85,7 +87,6 @@ export default function App() {
   const [currentConversationId, setCurrentConversationId] = useState<
     number | null
   >(null);
-  const [hasUsageBalance, setHasUsageBalance] = useState<boolean>(true);
   const [fontsLoaded] = useFonts({
     "Inter-Regular": require("./assets/fonts/Inter_18pt-Regular.ttf"),
     "Inter-Medium": require("./assets/fonts/Inter_18pt-Medium.ttf"),
@@ -106,35 +107,7 @@ export default function App() {
     "Lora-BoldItalic": require("./assets/fonts/Lora-BoldItalic.ttf"),
   });
 
-  useEffect(() => {
-    configureStorage();
-  }, []);
-
-  async function configureStorage() {
-    try {
-      console.log("🚀 === APP STARTING ===");
-      console.log("🚀 Initializing database...");
-
-      // Initialize SQLite database
-      await initDatabase();
-
-      console.log("🚀 Database initialized, setting up theme...");
-      // Force set modern light theme as default
-      await AsyncStorage.setItem("rnai-theme", "light");
-      setTheme("light");
-
-      const _chatType = await AsyncStorage.getItem("rnai-chatType");
-      if (_chatType) setChatType(JSON.parse(_chatType));
-      const _imageModel = await AsyncStorage.getItem("rnai-imageModel");
-      if (_imageModel) setImageModel(_imageModel);
-
-      console.log("🚀 === APP READY ===");
-    } catch (err) {
-      console.log("❌ ERROR configuring storage:", err);
-    } finally {
-      setIsStorageReady(true);
-    }
-  }
+  const [hasUsageBalance, setHasUsageBalance] = useState<boolean>(true);
 
   const checkUsageBalance = useCallback(async () => {
     if (!walletAddress) {
@@ -167,6 +140,36 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [checkUsageBalance]);
+
+  useEffect(() => {
+    configureStorage();
+  }, []);
+
+  async function configureStorage() {
+    try {
+      console.log("🚀 === APP STARTING ===");
+      console.log("🚀 Initializing database...");
+
+      // Initialize SQLite database
+      await initDatabase();
+
+      console.log("🚀 Database initialized, setting up theme...");
+      // Force set modern light theme as default
+      await AsyncStorage.setItem("rnai-theme", "light");
+      setTheme("light");
+
+      const _chatType = await AsyncStorage.getItem("rnai-chatType");
+      if (_chatType) setChatType(JSON.parse(_chatType));
+      const _imageModel = await AsyncStorage.getItem("rnai-imageModel");
+      if (_imageModel) setImageModel(_imageModel);
+
+      console.log("🚀 === APP READY ===");
+    } catch (err) {
+      console.log("❌ ERROR configuring storage:", err);
+    } finally {
+      setIsStorageReady(true);
+    }
+  }
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   function closeModal() {
@@ -234,6 +237,7 @@ export default function App() {
                 currentConversationId,
                 setCurrentConversationId,
                 hasUsageBalance,
+                setHasUsageBalance,
                 refreshUsageBalance: checkUsageBalance,
               }}
             >
@@ -244,35 +248,37 @@ export default function App() {
                   setTheme: _setTheme,
                 }}
               >
-                <ProfileProvider>
-                  <BottomSheetModalProvider>
-                    <ActionSheetProvider>
-                      <NavigationContainer>
-                        <RootNavigator />
-                      </NavigationContainer>
-                    </ActionSheetProvider>
-                    <BottomSheetModal
-                      handleIndicatorStyle={bottomSheetStyles.handleIndicator}
-                      handleStyle={bottomSheetStyles.handle}
-                      backgroundStyle={bottomSheetStyles.background}
-                      ref={bottomSheetModalRef}
-                      enableDynamicSizing={true}
-                      backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
-                      )}
-                      enableDismissOnClose
-                      enablePanDownToClose
-                      onDismiss={() => setModalVisible(false)}
-                    >
-                      <BottomSheetView>
-                        <ChatModelModal
-                          handlePresentModalPress={handlePresentModalPress}
-                        />
-                      </BottomSheetView>
-                    </BottomSheetModal>
-                    {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
-                  </BottomSheetModalProvider>
-                </ProfileProvider>
+                <BottomSheetModalProvider>
+                  <AlertProvider>
+                    <ProfileProvider>
+                      <ActionSheetProvider>
+                        <NavigationContainer>
+                          <RootNavigator />
+                        </NavigationContainer>
+                      </ActionSheetProvider>
+                    </ProfileProvider>
+                  </AlertProvider>
+                  <BottomSheetModal
+                    handleIndicatorStyle={bottomSheetStyles.handleIndicator}
+                    handleStyle={bottomSheetStyles.handle}
+                    backgroundStyle={bottomSheetStyles.background}
+                    ref={bottomSheetModalRef}
+                    enableDynamicSizing={true}
+                    backdropComponent={(props) => (
+                      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} />
+                    )}
+                    enableDismissOnClose
+                    enablePanDownToClose
+                    onDismiss={() => setModalVisible(false)}
+                  >
+                    <BottomSheetView>
+                      <ChatModelModal
+                        handlePresentModalPress={handlePresentModalPress}
+                      />
+                    </BottomSheetView>
+                  </BottomSheetModal>
+                  {FEATURE_FLAGS.HOT_WALLET && <TopUpBottomSheet />}
+                </BottomSheetModalProvider>
               </ThemeContext.Provider>
             </AppContext.Provider>
           </HotWalletProvider>
@@ -346,7 +352,7 @@ function RootNavigator() {
     const subscription = AppState.addEventListener("change", (nextState) => {
       const wasBackgrounded =
         appStateRef.current === "background" || appStateRef.current === "inactive";
-      if (wasBackgrounded && nextState === "active" && requiresBiometricCheck) {
+      if (wasBackgrounded && nextState === "active" && requiresBiometricCheck && !isWalletInteractionActive()) {
         setIsBiometricGateActive(true);
       }
       appStateRef.current = nextState;

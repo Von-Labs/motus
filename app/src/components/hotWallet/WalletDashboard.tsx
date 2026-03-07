@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useContext, useState } from "react";
 import { ThemeContext } from "../../context";
+import { useAlert } from "../../context/AlertContext";
 import { useHotWallet } from "../../context/HotWalletContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BalanceCard } from "./BalanceCard";
@@ -28,15 +29,16 @@ export function WalletDashboard({
   onSend,
 }: WalletDashboardProps) {
   const { theme } = useContext(ThemeContext);
+  const { showAlert } = useAlert();
   const { exportSecretKey } = useHotWallet();
   const styles = getStyles(theme);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
   const handleExportKey = () => {
-    Alert.alert(
-      "Export Private Key",
-      "This will reveal your private key. Anyone with this key has full control of this wallet. Are you sure?",
-      [
+    showAlert({
+      title: "Export Private Key",
+      message: "This will reveal your private key. Anyone with this key has full control of this wallet. Are you sure?",
+      buttons: [
         { text: "Cancel", style: "cancel" },
         {
           text: "Show Key",
@@ -48,20 +50,20 @@ export function WalletDashboard({
           },
         },
       ],
-    );
+    });
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      "Delete Hot Wallet",
-      balance > 0
+    showAlert({
+      title: "Delete Hot Wallet",
+      message: balance > 0
         ? `You still have ${formatSol(balance)} SOL in this wallet. Deleting the wallet will make these funds unrecoverable. Are you sure?`
         : "This will permanently delete your hot wallet. This action cannot be undone.",
-      [
+      buttons: [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: onDelete },
       ],
-    );
+    });
   };
 
   return (

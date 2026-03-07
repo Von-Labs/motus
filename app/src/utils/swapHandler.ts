@@ -3,6 +3,7 @@ import {
   signAndSendTransactionFromBase64,
   type HotWalletSignerOptions,
 } from "./transactionSigner";
+import { reportErrorToDiscord } from "./errorReporter";
 
 export interface SwapHandlerOptions {
   hotWallet?: HotWalletSignerOptions | null;
@@ -45,8 +46,9 @@ export async function handleSwapTransaction(
       },
       signer,
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to save transaction to database:", error);
+    reportErrorToDiscord(error?.message || String(error), { source: 'swapHandler > handleSwapTransaction (db save)' }).catch(() => {});
   }
 
   return signature;
@@ -92,8 +94,9 @@ export async function handleTriggerTransaction(
       },
       signer,
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to save transaction to database:", error);
+    reportErrorToDiscord(error?.message || String(error), { source: 'swapHandler > handleTriggerTransaction (db save)' }).catch(() => {});
   }
 
   return signature;
@@ -138,8 +141,9 @@ export async function handleSendTransaction(
     details.symbol = sendData.symbol || sendData.name || null;
     details.name = sendData.name || null;
     await createWalletTransaction('send', signature, 'success', details, signer);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to save send transaction to database:', error);
+    reportErrorToDiscord(error?.message || String(error), { source: 'swapHandler > handleSendTransaction (db save)' }).catch(() => {});
   }
 
   return signature;
@@ -301,8 +305,9 @@ export async function handleDriftTransaction(
       'success',
       driftData.data
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to save Drift transaction to database:', error);
+    reportErrorToDiscord(error?.message || String(error), { source: 'swapHandler > handleDriftTransaction (db save)' }).catch(() => {});
   }
 
   return signature;

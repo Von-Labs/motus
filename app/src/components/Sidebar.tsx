@@ -1,11 +1,13 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { useContext, useEffect, useState } from "react";
 import { ThemeContext, AppContext } from "../context";
+import { useAlert } from "../context/AlertContext";
 import { useHotWallet } from "../context/HotWalletContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMobileWallet } from "@wallet-ui/react-native-web3js";
 import { getRecentConversations, Conversation } from "../utils/database";
 import { getStyles } from "./Sidebar.styles";
+import { reportErrorToDiscord } from "../utils/errorReporter";
 import { WalletCard } from "./WalletCard";
 import { ConversationList } from "./ConversationList";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
@@ -22,12 +24,15 @@ export function Sidebar(props: DrawerContentComponentProps) {
   const { isHotWalletFeatureEnabled, isHotWalletActive, deleteHotWallet } =
     useHotWallet();
   const { disconnect } = useMobileWallet();
+  const { showAlert } = useAlert();
   const styles = getStyles(theme);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
 
+  // Reload recent conversations every time the drawer opens
+  // props.state.history changes when drawer opens/closes
   useEffect(() => {
     loadRecentConversations();
-  }, []);
+  }, [props.state.history?.length]);
 
   async function loadRecentConversations() {
     try {
@@ -65,46 +70,34 @@ export function Sidebar(props: DrawerContentComponentProps) {
       setOnboardingCompleted(false);
       setCurrentConversationId(null);
       props.navigation.closeDrawer();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to logout:", error);
+      reportErrorToDiscord(error?.message || String(error), { source: 'Sidebar > performLogout', wallet: walletAddress }).catch(() => {});
     }
   };
 
   const handleDisconnect = () => {
     if (isHotWalletActive) {
-      Alert.alert(
-        "Logout",
-        "Do you also want to delete your hot wallet?",
-        [
+      showAlert({
+        title: "Logout",
+        message: "Do you also want to delete your hot wallet?",
+        buttons: [
           { text: "Cancel", style: "cancel" },
-          {
-            text: "Keep hot wallet",
-            onPress: () => {
-              performLogout(false);
-            },
-          },
-          {
-            text: "Delete hot wallet",
-            style: "destructive",
-            onPress: () => {
-              performLogout(true);
-            },
-          },
+          { text: "Keep hot wallet", onPress: () => performLogout(false) },
+          { text: "Delete hot wallet", style: "destructive", onPress: () => performLogout(true) },
         ],
-      );
+      });
       return;
     }
 
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: () => {
-          performLogout(false);
-        },
-      },
-    ]);
+    showAlert({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      buttons: [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: () => performLogout(false) },
+      ],
+    });
   };
 
   return (
