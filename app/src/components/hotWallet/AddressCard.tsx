@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useContext } from "react";
 import { ThemeContext } from "../../context";
+import { useAlert } from "../../context/AlertContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 
@@ -15,11 +16,12 @@ interface AddressCardProps {
 
 export function AddressCard({ publicKey }: AddressCardProps) {
   const { theme } = useContext(ThemeContext);
+  const { showAlert } = useAlert();
   const styles = getStyles(theme);
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(publicKey);
-    Alert.alert("Copied", "Wallet address copied to clipboard.");
+    showAlert({ title: "Copied", message: "Wallet address copied to clipboard." });
   };
 
   return (

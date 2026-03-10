@@ -2,7 +2,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { useContext, useEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { AppContext, ThemeContext } from "../context";
+import { useAlert } from "../context/AlertContext";
 import {
   Conversation,
   deleteConversation,
@@ -20,6 +20,7 @@ export function AllChats() {
   const { theme } = useContext(ThemeContext);
   const { setCurrentConversationId, currentConversationId } =
     useContext(AppContext);
+  const { showAlert } = useAlert();
   const navigation = useNavigation();
   const styles = getStyles(theme);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -47,27 +48,20 @@ export function AllChats() {
   }
 
   function handleDeleteConversation(conversation: Conversation) {
-    Alert.alert(
-      "Delete Conversation",
-      `Are you sure you want to delete "${conversation.title}"?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+    showAlert({
+      title: "Delete Conversation",
+      message: `Are you sure you want to delete "${conversation.title}"?`,
+      buttons: [
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
             try {
               await deleteConversation(conversation.id);
-
-              // Clear currentConversationId if deleted conversation was active
               if (currentConversationId === conversation.id) {
                 setCurrentConversationId(null);
               }
-
-              // Reload conversations
               loadAllConversations();
             } catch (error) {
               console.error("Failed to delete conversation:", error);
@@ -75,7 +69,7 @@ export function AllChats() {
           },
         },
       ],
-    );
+    });
   }
 
   function formatDate(timestamp: number | Date): string {

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -16,9 +15,11 @@ import {
 import { useContext, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { ThemeContext, AppContext } from "../context";
+import { useAlert } from "../context/AlertContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { DOMAIN } from "../../constants";
 import { handleSendTransaction, type SolanaCluster } from "../utils/swapHandler";
+import { reportErrorToDiscord } from "../utils/errorReporter";
 
 const LAMPORTS_PER_SOL = 1e9;
 
@@ -66,6 +67,7 @@ const COMMON_TOKENS: TokenOption[] = [
 
 export function SendToken() {
   const { theme } = useContext(ThemeContext);
+  const { showAlert } = useAlert();
   const { walletAddress } = useContext(AppContext);
   const navigation = useNavigation();
   const [recipient, setRecipient] = useState("");
@@ -224,7 +226,8 @@ export function SendToken() {
         ? "Could not reach the server. On device/emulator: set EXPO_PUBLIC_DEV_API_URL in .env to http://<your-IP>:3050 (Android emulator: http://10.0.2.2:3050), then restart the app (npx expo start -c)."
         : raw;
       setError(msg);
-      Alert.alert("Error", msg);
+      showAlert({ title: "Error", message: msg });
+      reportErrorToDiscord(msg, { source: 'SendToken > handleSend', wallet: walletAddress }).catch(() => {});
     } finally {
       setLoading(false);
     }

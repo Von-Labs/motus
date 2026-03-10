@@ -6,6 +6,7 @@ declare global {
   namespace Express {
     interface Request {
       walletAddress?: string;
+      isFreeRequest?: boolean;
       usageTracking?: {
         model: string;
         requestType: string;
@@ -38,8 +39,9 @@ export const checkBalance = async (
     // Get or create user
     const user = await db.getOrCreateUser(walletAddress) as any;
 
-    // Store wallet address in request for later use
+    // Store wallet address and free request status in request for later use
     req.walletAddress = walletAddress;
+    req.isFreeRequest = user.free_requests_remaining > 0;
 
     // Check if user has free requests or USDC balance
     if (user.free_requests_remaining <= 0 && user.usdc_balance <= 0) {

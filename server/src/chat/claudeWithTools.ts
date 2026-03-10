@@ -4,6 +4,7 @@ import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupite
 import { sendTools, handleToolCall as handleSendToolCall } from '../sends'
 import { tapestryTools, handleToolCall as handleTapestryToolCall } from '../services/tapestry'
 import { db } from '../db/supabase'
+import { reportErrorToDiscord } from '../utils/errorReporter'
 
 // Lazy-load Drift to avoid crashing on Windows when yellowstone-grpc native binding is missing
 let _driftModule: { driftTools: any[]; handleToolCall: (name: string, input: any) => Promise<any> } | null | undefined = undefined
@@ -80,7 +81,9 @@ export const claudeWithTools = asyncHandler(
       })
 
       const { messages, model, systemPrompt }: RequestBody = req.body
-      const modelConfig = models[model]
+      // Force Haiku for free requests, use UI-selected model for paid
+      const effectiveModel = req.isFreeRequest ? 'claudeHaiku' : model
+      const modelConfig = models[effectiveModel]
       const walletAddress = req.headers['x-wallet-address'] as string
 
       if (!modelConfig) {
@@ -206,7 +209,9 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
         })
 
         if (!response.ok) {
-          throw new Error(`Anthropic API error: ${response.status}`)
+          const errorBody = await response.text()
+          console.error(`Anthropic API ${response.status}:`, errorBody)
+          throw new Error(`Anthropic API error: ${response.status} - ${errorBody}`)
         }
 
         const result = await response.json()
@@ -316,8 +321,14 @@ Always ask for wallet address when needed. Be helpful and educational about DeFi
 
       res.write('data: [DONE]\n\n')
       res.end()
-    } catch (err) {
+    } catch (err: any) {
       console.log('error in claude chat with tools: ', err)
+      reportErrorToDiscord(err?.message || String(err), {
+        source: 'claudeWithTools',
+        endpoint: req.path,
+        wallet: req.headers['x-wallet-address'] as string,
+        model: req.body?.model,
+      }).catch(() => {})
       res.write(
         `data: ${JSON.stringify({ type: 'error', error: String(err) })}\n\n`
       )

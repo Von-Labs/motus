@@ -1,4 +1,5 @@
 import { DOMAIN } from '../../constants'
+import { reportErrorToDiscord } from './errorReporter'
 
 export interface TapestryPendingAction {
   pendingAction: true
@@ -77,7 +78,9 @@ export async function handleTapestryAction(
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
-    throw new Error(errorBody.error || `Server error: ${response.status}`)
+    const errMsg = errorBody.error || `Server error: ${response.status}`
+    reportErrorToDiscord(errMsg, { source: 'tapestryHandler > handleTapestryAction', wallet: walletAddress }).catch(() => {})
+    throw new Error(errMsg)
   }
 
   return response.json()
@@ -109,7 +112,9 @@ export async function shareToSocial(
   if (!summarizeRes.ok) {
     const err = await summarizeRes.json().catch(() => ({}))
     console.error('[Share] Summarize failed:', err)
-    throw new Error((err as any).error || 'Failed to summarize')
+    const errMsg = (err as any).error || 'Failed to summarize'
+    reportErrorToDiscord(errMsg, { source: 'tapestryHandler > shareToSocial (summarize)', wallet: walletAddress }).catch(() => {})
+    throw new Error(errMsg)
   }
 
   const { summary } = await summarizeRes.json() as { summary: string }
@@ -123,6 +128,7 @@ export async function shareToSocial(
 
   if (!profileRes.ok) {
     console.error('[Share] Profile fetch failed:', profileRes.status)
+    reportErrorToDiscord(`Profile fetch failed: ${profileRes.status}`, { source: 'tapestryHandler > shareToSocial (profile)', wallet: walletAddress }).catch(() => {})
     throw new Error('Failed to fetch Tapestry profile')
   }
 
