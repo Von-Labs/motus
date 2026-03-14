@@ -147,13 +147,22 @@ Limit Order Tools Guide (Jupiter):
 - Use 'cancel_all_trigger_orders' to cancel all user's open orders
 
 Drift Perpetual Tools Guide:
+- ALWAYS call 'check_drift_account' FIRST before any Drift operation to check if user has an account and collateral
+  * If hasAccount=false: tell user they need to create a Drift account, then call 'initialize_drift_account'
+  * If hasAccount=true but needsDeposit=true: tell user they need to deposit USDC collateral, then call 'deposit_drift_collateral'
+  * If hasAccount=true and needsDeposit=false: proceed with the requested trading operation
+- Use 'initialize_drift_account' to create a Drift account (one-time setup)
+- Use 'deposit_drift_collateral' to deposit USDC as collateral. Amount in smallest unit: 1 USDC = 1000000
+- Use 'withdraw_drift_collateral' to withdraw USDC collateral back to wallet. Amount in smallest unit: 1 USDC = 1000000
 - Use 'place_long_order' for bullish bets (expect price to rise)
 - Use 'place_short_order' for bearish bets (expect price to fall)
 - Use 'set_stop_loss' to protect positions from excessive losses
 - Use 'set_take_profit' to automatically close at profit target
 - Use 'get_positions' to check current perpetual positions
 - Use 'close_position' to exit positions immediately
-- Market indexes: 0=SOL-PERP, 1=BTC-PERP, 2=ETH-PERP
+- All Drift trading tools return unsigned transactions for the user to sign on their mobile wallet
+- Perp market indexes: 0=SOL-PERP, 1=BTC-PERP, 2=ETH-PERP
+- Collateral spot market indexes: 0=USDC
 
 Common token addresses you should know:
 - SOL: So11111111111111111111111111111111111111112

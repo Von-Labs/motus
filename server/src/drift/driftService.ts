@@ -6,101 +6,245 @@ import {
   BASE_PRECISION,
   PRICE_PRECISION,
   MarketType,
-  User,
 } from '@drift-labs/sdk'
 import { Connection, PublicKey } from '@solana/web3.js'
-import { Wallet, AnchorProvider } from '@coral-xyz/anchor'
 import { BN } from '@coral-xyz/anchor'
 
+interface CachedClient {
+  client: DriftClient
+  lastUsed: number
+}
+
+const CLIENT_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+function createReadOnlyWallet(publicKey: PublicKey) {
+  return {
+    publicKey,
+    signTransaction: async (_tx: any): Promise<any> => {
+      throw new Error('Read-only wallet cannot sign transactions')
+    },
+    signAllTransactions: async (_txs: any[]): Promise<any[]> => {
+      throw new Error('Read-only wallet cannot sign transactions')
+    },
+  }
+}
+
+function serializeTx(tx: any): string {
+  // Check for VersionedTransaction (has no `serializeMessage` but has `serialize`)
+  if (tx.version !== undefined || !tx.serializeMessage) {
+    return Buffer.from(tx.serialize()).toString('base64')
+  }
+  return Buffer.from(tx.serialize({ requireAllSignatures: false })).toString('base64')
+}
+
 export class DriftService {
-  private static driftClient: DriftClient | null = null
+  private static clients: Map<string, CachedClient> = new Map()
+  private static cleanupInterval: ReturnType<typeof setInterval> | null = null
 
-  /**
-   * Initialize DriftClient with connection and wallet
-   */
-  static async initialize(connection: Connection, wallet: Wallet, env: 'mainnet-beta' | 'devnet' = 'mainnet-beta') {
-    const provider = new AnchorProvider(connection, wallet, {
-      commitment: 'confirmed',
-    })
-
-    this.driftClient = new DriftClient({
-      connection: connection as any,
-      wallet: provider.wallet as any,
-      env,
-    })
-
-    await this.driftClient.subscribe()
-    return this.driftClient
+  private static startCleanup() {
+    if (this.cleanupInterval) return
+    this.cleanupInterval = setInterval(() => {
+      const now = Date.now()
+      for (const [key, cached] of this.clients.entries()) {
+        if (now - cached.lastUsed > CLIENT_TTL_MS) {
+          cached.client.unsubscribe().catch(() => {})
+          this.clients.delete(key)
+        }
+      }
+      if (this.clients.size === 0 && this.cleanupInterval) {
+        clearInterval(this.cleanupInterval)
+        this.cleanupInterval = null
+      }
+    }, 60_000)
   }
 
-  /**
-   * Get or create DriftClient instance
-   */
-  static getDriftClient(): DriftClient {
-    if (!this.driftClient) {
-      throw new Error('DriftClient not initialized. Call initialize() first.')
+  static async getClient(userPublicKey: string): Promise<DriftClient> {
+    const cached = this.clients.get(userPublicKey)
+    if (cached) {
+      cached.lastUsed = Date.now()
+      return cached.client
     }
-    return this.driftClient
+
+    const rpcUrl = process.env.SOLANA_RPC_URL
+    if (!rpcUrl) throw new Error('SOLANA_RPC_URL not configured')
+
+    const connection = new Connection(rpcUrl, 'confirmed')
+    const wallet = createReadOnlyWallet(new PublicKey(userPublicKey))
+
+    const client = new DriftClient({
+      connection: connection as any,
+      wallet: wallet as any,
+      env: 'mainnet-beta',
+    })
+
+    await client.subscribe()
+
+    this.clients.set(userPublicKey, { client, lastUsed: Date.now() })
+    this.startCleanup()
+    return client
   }
 
   /**
-   * Place a LONG market order (buy/bullish)
+   * Check if user has a Drift account and collateral balance
    */
-  static async placeLongOrder(
+  static async checkAccountStatus(userPublicKey: string): Promise<{
+    hasAccount: boolean
+    freeCollateral: string
+    needsDeposit: boolean
+  }> {
+    const client = await this.getClient(userPublicKey)
+
+    try {
+      const userAccount = client.getUserAccount()
+      if (!userAccount) {
+        return { hasAccount: false, freeCollateral: '0', needsDeposit: true }
+      }
+
+      const user = client.getUser()
+      const freeCollateral = user.getFreeCollateral()
+
+      return {
+        hasAccount: true,
+        freeCollateral: freeCollateral.toString(),
+        needsDeposit: freeCollateral.isZero(),
+      }
+    } catch {
+      return { hasAccount: false, freeCollateral: '0', needsDeposit: true }
+    }
+  }
+
+  /**
+   * Build unsigned initialize user account transaction
+   */
+  static async buildInitializeAccountTx(
+    userPublicKey: string,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
+
+    const [ixs] = await client.getInitializeUserAccountIxs()
+    const tx = await client.buildTransaction(ixs)
+    return { transaction: serializeTx(tx) }
+  }
+
+  /**
+   * Build unsigned deposit collateral transaction
+   * marketIndex 0 = USDC (quote asset)
+   */
+  static async buildDepositTx(
+    userPublicKey: string,
+    amount: number,
+    marketIndex: number = 0,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
+    const pubkey = new PublicKey(userPublicKey)
+
+    const associatedTokenAccount = await client.getAssociatedTokenAccount(
+      marketIndex,
+      false,
+      undefined,
+      pubkey,
+    )
+
+    const ixs = await client.getDepositTxnIx(
+      new BN(amount),
+      marketIndex,
+      associatedTokenAccount,
+    )
+
+    const tx = await client.buildTransaction(ixs)
+    return { transaction: serializeTx(tx) }
+  }
+
+  /**
+   * Build unsigned withdraw collateral transaction
+   * marketIndex 0 = USDC (quote asset)
+   */
+  static async buildWithdrawTx(
+    userPublicKey: string,
+    amount: number,
+    marketIndex: number = 0,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
+    const pubkey = new PublicKey(userPublicKey)
+
+    const associatedTokenAccount = await client.getAssociatedTokenAccount(
+      marketIndex,
+      false,
+      undefined,
+      pubkey,
+    )
+
+    const ixs = await client.getWithdrawalIxs(
+      new BN(amount),
+      marketIndex,
+      associatedTokenAccount,
+    )
+
+    const tx = await client.buildTransaction(ixs)
+    return { transaction: serializeTx(tx) }
+  }
+
+  /**
+   * Build unsigned LONG market order transaction
+   */
+  static async buildLongOrderTx(
+    userPublicKey: string,
     marketIndex: number,
     amount: number,
-    slippageBps: number = 50
-  ): Promise<string> {
-    const client = this.getDriftClient()
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
 
-    const txSig = await client.placePerpOrder({
+    const ix = await client.getPlacePerpOrderIx({
       marketIndex,
       orderType: OrderType.MARKET,
       direction: PositionDirection.LONG,
       baseAssetAmount: BASE_PRECISION.mul(new BN(amount)),
-      price: new BN(0), // Market order
+      price: new BN(0),
       maxTs: new BN(0),
       marketType: MarketType.PERP,
     })
 
-    return txSig
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
-   * Place a SHORT market order (sell/bearish)
+   * Build unsigned SHORT market order transaction
    */
-  static async placeShortOrder(
+  static async buildShortOrderTx(
+    userPublicKey: string,
     marketIndex: number,
     amount: number,
-    slippageBps: number = 50
-  ): Promise<string> {
-    const client = this.getDriftClient()
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
 
-    const txSig = await client.placePerpOrder({
+    const ix = await client.getPlacePerpOrderIx({
       marketIndex,
       orderType: OrderType.MARKET,
       direction: PositionDirection.SHORT,
       baseAssetAmount: BASE_PRECISION.mul(new BN(amount)),
-      price: new BN(0), // Market order
+      price: new BN(0),
       maxTs: new BN(0),
       marketType: MarketType.PERP,
     })
 
-    return txSig
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
-   * Place a limit order
+   * Build unsigned limit order transaction
    */
-  static async placeLimitOrder(
+  static async buildLimitOrderTx(
+    userPublicKey: string,
     marketIndex: number,
     direction: 'LONG' | 'SHORT',
     amount: number,
-    price: number
-  ): Promise<string> {
-    const client = this.getDriftClient()
+    price: number,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
 
-    const txSig = await client.placePerpOrder({
+    const ix = await client.getPlacePerpOrderIx({
       marketIndex,
       orderType: OrderType.LIMIT,
       direction: direction === 'LONG' ? PositionDirection.LONG : PositionDirection.SHORT,
@@ -108,27 +252,28 @@ export class DriftService {
       price: PRICE_PRECISION.mul(new BN(price)),
       maxTs: new BN(0),
       marketType: MarketType.PERP,
-      postOnly: true, // 0% maker fees
+      postOnly: true,
     })
 
-    return txSig
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
-   * Set stop loss trigger order
+   * Build unsigned stop loss transaction
    */
-  static async setStopLoss(
+  static async buildStopLossTx(
+    userPublicKey: string,
     marketIndex: number,
     amount: number,
     triggerPrice: number,
-    currentDirection: 'LONG' | 'SHORT'
-  ): Promise<string> {
-    const client = this.getDriftClient()
+    currentDirection: 'LONG' | 'SHORT',
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
 
-    // Stop loss closes the position, so direction is opposite
     const closeDirection = currentDirection === 'LONG' ? PositionDirection.SHORT : PositionDirection.LONG
 
-    const txSig = await client.placePerpOrder({
+    const ix = await client.getPlacePerpOrderIx({
       orderType: OrderType.TRIGGER_MARKET,
       marketIndex,
       direction: closeDirection,
@@ -136,30 +281,31 @@ export class DriftService {
       triggerPrice: PRICE_PRECISION.mul(new BN(triggerPrice)),
       triggerCondition:
         currentDirection === 'LONG' ? OrderTriggerCondition.BELOW : OrderTriggerCondition.ABOVE,
-      reduceOnly: true, // Only close position, don't open new one
+      reduceOnly: true,
       marketType: MarketType.PERP,
       price: new BN(0),
       maxTs: new BN(0),
     })
 
-    return txSig
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
-   * Set take profit trigger order
+   * Build unsigned take profit transaction
    */
-  static async setTakeProfit(
+  static async buildTakeProfitTx(
+    userPublicKey: string,
     marketIndex: number,
     amount: number,
     triggerPrice: number,
-    currentDirection: 'LONG' | 'SHORT'
-  ): Promise<string> {
-    const client = this.getDriftClient()
+    currentDirection: 'LONG' | 'SHORT',
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
 
-    // Take profit closes the position, so direction is opposite
     const closeDirection = currentDirection === 'LONG' ? PositionDirection.SHORT : PositionDirection.LONG
 
-    const txSig = await client.placePerpOrder({
+    const ix = await client.getPlacePerpOrderIx({
       orderType: OrderType.TRIGGER_MARKET,
       marketIndex,
       direction: closeDirection,
@@ -167,25 +313,24 @@ export class DriftService {
       triggerPrice: PRICE_PRECISION.mul(new BN(triggerPrice)),
       triggerCondition:
         currentDirection === 'LONG' ? OrderTriggerCondition.ABOVE : OrderTriggerCondition.BELOW,
-      reduceOnly: true, // Only close position, don't open new one
+      reduceOnly: true,
       marketType: MarketType.PERP,
       price: new BN(0),
       maxTs: new BN(0),
     })
 
-    return txSig
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
    * Get current perpetual positions
    */
-  static async getPositions() {
-    const client = this.getDriftClient()
+  static async getPositions(userPublicKey: string) {
+    const client = await this.getClient(userPublicKey)
     const user = client.getUser()
 
     const positions = (user as any).getActivePerpPositions?.() ?? (user as any).perpPositions ?? []
-
-    // Filter out empty positions
     const activePositions = positions.filter((pos: any) => !pos.baseAssetAmount.isZero())
 
     return activePositions.map((pos: any) => ({
@@ -198,10 +343,13 @@ export class DriftService {
   }
 
   /**
-   * Close a position
+   * Build unsigned close position transaction
    */
-  static async closePosition(marketIndex: number): Promise<string> {
-    const client = this.getDriftClient()
+  static async buildClosePositionTx(
+    userPublicKey: string,
+    marketIndex: number,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
     const user = client.getUser()
 
     const position = user.getPerpPosition(marketIndex)
@@ -209,12 +357,11 @@ export class DriftService {
       throw new Error(`No open position for market ${marketIndex}`)
     }
 
-    // Close direction is opposite of current position
     const closeDirection = position.baseAssetAmount.isNeg()
       ? PositionDirection.LONG
       : PositionDirection.SHORT
 
-    const txSig = await client.placePerpOrder({
+    const ix = await client.getPlacePerpOrderIx({
       marketIndex,
       orderType: OrderType.MARKET,
       direction: closeDirection,
@@ -225,43 +372,49 @@ export class DriftService {
       reduceOnly: true,
     })
 
-    return txSig
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
-   * Cancel a specific order
+   * Build unsigned cancel order transaction
    */
-  static async cancelOrder(orderId: number): Promise<string> {
-    const client = this.getDriftClient()
-    const txSig = await client.cancelOrder(orderId)
-    return txSig
+  static async buildCancelOrderTx(
+    userPublicKey: string,
+    orderId: number,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
+
+    const ix = await client.getCancelOrderIx(orderId)
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
-   * Cancel all orders
+   * Build unsigned cancel all orders transaction
    */
-  static async cancelAllOrders(marketIndex?: number): Promise<string> {
-    const client = this.getDriftClient()
+  static async buildCancelAllOrdersTx(
+    userPublicKey: string,
+    marketIndex?: number,
+  ): Promise<{ transaction: string }> {
+    const client = await this.getClient(userPublicKey)
 
-    if (marketIndex !== undefined) {
-      const txSig = await client.cancelOrders(MarketType.PERP, marketIndex)
-      return txSig
-    } else {
-      const txSig = await client.cancelOrders()
-      return txSig
-    }
+    const ix = marketIndex !== undefined
+      ? await client.getCancelOrdersIx(MarketType.PERP, marketIndex, null)
+      : await client.getCancelOrdersIx(null, null, null)
+
+    const tx = await client.buildTransaction(ix)
+    return { transaction: serializeTx(tx) }
   }
 
   /**
    * Get all open orders
    */
-  static async getOrders(marketIndex?: number) {
-    const client = this.getDriftClient()
+  static async getOrders(userPublicKey: string, marketIndex?: number) {
+    const client = await this.getClient(userPublicKey)
     const user = client.getUser()
 
     const orders = user.getOpenOrders()
-
-    // Filter by market index if provided
     const filteredOrders = marketIndex !== undefined
       ? orders.filter((order) => order.marketIndex === marketIndex)
       : orders
@@ -283,12 +436,31 @@ export class DriftService {
   }
 
   /**
-   * Get market information
+   * Get market information (no user context needed, but uses cached client)
    */
   static async getMarketInfo(marketIndex: number) {
-    const client = this.getDriftClient()
-    const market = client.getPerpMarketAccount(marketIndex)
+    // Use any cached client or create a temporary one
+    let client: DriftClient
+    const firstCached = this.clients.values().next().value
+    if (firstCached) {
+      client = (firstCached as CachedClient).client
+    } else {
+      const rpcUrl = process.env.SOLANA_RPC_URL
+      if (!rpcUrl) throw new Error('SOLANA_RPC_URL not configured')
 
+      const connection = new Connection(rpcUrl, 'confirmed')
+      // Use a dummy pubkey for market info queries (no user context needed)
+      const wallet = createReadOnlyWallet(PublicKey.default)
+      client = new DriftClient({
+        connection: connection as any,
+        wallet: wallet as any,
+        env: 'mainnet-beta',
+      })
+      await client.subscribe()
+      // Don't cache this temporary client
+    }
+
+    const market = client.getPerpMarketAccount(marketIndex)
     if (!market) {
       throw new Error(`Market ${marketIndex} not found`)
     }
@@ -304,12 +476,16 @@ export class DriftService {
   }
 
   /**
-   * Unsubscribe and cleanup
+   * Unsubscribe and cleanup all clients
    */
   static async cleanup() {
-    if (this.driftClient) {
-      await this.driftClient.unsubscribe()
-      this.driftClient = null
+    for (const [key, cached] of this.clients.entries()) {
+      await cached.client.unsubscribe().catch(() => {})
+      this.clients.delete(key)
+    }
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
     }
   }
 }
