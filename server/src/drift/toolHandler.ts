@@ -1,6 +1,9 @@
 import { DriftService } from './driftService'
 import { reportErrorToDiscord } from '../utils/errorReporter'
 import type {
+  InitializeDriftAccountParams,
+  DepositDriftCollateralParams,
+  WithdrawDriftCollateralParams,
   PlaceLongOrderParams,
   PlaceShortOrderParams,
   PlaceLimitOrderParams,
@@ -9,121 +12,167 @@ import type {
   ClosePositionParams,
   CancelOrderParams,
   CancelAllOrdersParams,
+  GetPositionsParams,
   GetOrdersParams,
   GetMarketInfoParams
 } from './types'
 
 /**
- * Handle tool calls from Claude for Drift Protocol operations
+ * Handle tool calls from Claude for Drift Protocol operations.
+ * Write operations return unsigned transactions for client-side signing.
  */
 export async function handleToolCall(toolName: string, toolInput: any): Promise<any> {
   try {
     switch (toolName) {
-      case 'place_long_order': {
-        const params = toolInput as PlaceLongOrderParams
-        const txSig = await DriftService.placeLongOrder(
-          params.marketIndex,
-          params.amount,
-          params.slippageBps
-        )
+      case 'check_drift_account': {
+        const { userPublicKey } = toolInput
+        const status = await DriftService.checkAccountStatus(userPublicKey)
         return {
           success: true,
-          transactionSignature: txSig,
-          message: `LONG order placed successfully for market ${params.marketIndex}`,
-          data: {
-            marketIndex: params.marketIndex,
-            direction: 'LONG',
-            amount: params.amount,
-            slippageBps: params.slippageBps || 50
-          }
+          ...status,
+          message: !status.hasAccount
+            ? 'User does not have a Drift account. Call initialize_drift_account first.'
+            : status.needsDeposit
+              ? 'User has a Drift account but no collateral. Call deposit_drift_collateral first.'
+              : `User has a Drift account with ${status.freeCollateral} free collateral (QUOTE_PRECISION).`,
+        }
+      }
+
+      case 'initialize_drift_account': {
+        const params = toolInput as InitializeDriftAccountParams
+        const { transaction } = await DriftService.buildInitializeAccountTx(
+          params.userPublicKey,
+        )
+        return {
+          transaction,
+          type: 'drift_initialize_account',
+        }
+      }
+
+      case 'deposit_drift_collateral': {
+        const params = toolInput as DepositDriftCollateralParams
+        const { transaction } = await DriftService.buildDepositTx(
+          params.userPublicKey,
+          params.amount,
+          params.marketIndex,
+        )
+        return {
+          transaction,
+          type: 'drift_deposit',
+          amount: params.amount,
+          marketIndex: params.marketIndex || 0,
+        }
+      }
+
+      case 'withdraw_drift_collateral': {
+        const params = toolInput as WithdrawDriftCollateralParams
+        const { transaction } = await DriftService.buildWithdrawTx(
+          params.userPublicKey,
+          params.amount,
+          params.marketIndex,
+        )
+        return {
+          transaction,
+          type: 'drift_withdraw',
+          amount: params.amount,
+          marketIndex: params.marketIndex || 0,
+        }
+      }
+
+      case 'place_long_order': {
+        const params = toolInput as PlaceLongOrderParams
+        const { transaction } = await DriftService.buildLongOrderTx(
+          params.userPublicKey,
+          params.marketIndex,
+          params.amount,
+        )
+        return {
+          transaction,
+          type: 'drift_market_order',
+          direction: 'LONG',
+          marketIndex: params.marketIndex,
+          amount: params.amount,
+          slippageBps: params.slippageBps || 50,
         }
       }
 
       case 'place_short_order': {
         const params = toolInput as PlaceShortOrderParams
-        const txSig = await DriftService.placeShortOrder(
+        const { transaction } = await DriftService.buildShortOrderTx(
+          params.userPublicKey,
           params.marketIndex,
           params.amount,
-          params.slippageBps
         )
         return {
-          success: true,
-          transactionSignature: txSig,
-          message: `SHORT order placed successfully for market ${params.marketIndex}`,
-          data: {
-            marketIndex: params.marketIndex,
-            direction: 'SHORT',
-            amount: params.amount,
-            slippageBps: params.slippageBps || 50
-          }
+          transaction,
+          type: 'drift_market_order',
+          direction: 'SHORT',
+          marketIndex: params.marketIndex,
+          amount: params.amount,
+          slippageBps: params.slippageBps || 50,
         }
       }
 
       case 'place_limit_order': {
         const params = toolInput as PlaceLimitOrderParams
-        const txSig = await DriftService.placeLimitOrder(
+        const { transaction } = await DriftService.buildLimitOrderTx(
+          params.userPublicKey,
           params.marketIndex,
           params.direction,
           params.amount,
-          params.price
+          params.price,
         )
         return {
-          success: true,
-          transactionSignature: txSig,
-          message: `${params.direction} limit order placed at $${params.price}`,
-          data: {
-            marketIndex: params.marketIndex,
-            direction: params.direction,
-            amount: params.amount,
-            price: params.price
-          }
+          transaction,
+          type: 'drift_limit_order',
+          direction: params.direction,
+          marketIndex: params.marketIndex,
+          amount: params.amount,
+          price: params.price,
         }
       }
 
       case 'set_stop_loss': {
         const params = toolInput as SetStopLossParams
-        const txSig = await DriftService.setStopLoss(
+        const { transaction } = await DriftService.buildStopLossTx(
+          params.userPublicKey,
           params.marketIndex,
           params.amount,
           params.triggerPrice,
-          params.currentDirection
+          params.currentDirection,
         )
         return {
-          success: true,
-          transactionSignature: txSig,
-          message: `Stop loss set at $${params.triggerPrice} for ${params.currentDirection} position`,
-          data: {
-            marketIndex: params.marketIndex,
-            amount: params.amount,
-            triggerPrice: params.triggerPrice,
-            currentDirection: params.currentDirection
-          }
+          transaction,
+          type: 'drift_stop_loss',
+          marketIndex: params.marketIndex,
+          amount: params.amount,
+          triggerPrice: params.triggerPrice,
+          currentDirection: params.currentDirection,
         }
       }
 
       case 'set_take_profit': {
         const params = toolInput as SetTakeProfitParams
-        const txSig = await DriftService.setTakeProfit(
+        const { transaction } = await DriftService.buildTakeProfitTx(
+          params.userPublicKey,
           params.marketIndex,
           params.amount,
           params.triggerPrice,
-          params.currentDirection
+          params.currentDirection,
         )
         return {
-          success: true,
-          transactionSignature: txSig,
-          message: `Take profit set at $${params.triggerPrice} for ${params.currentDirection} position`,
-          data: {
-            marketIndex: params.marketIndex,
-            amount: params.amount,
-            triggerPrice: params.triggerPrice,
-            currentDirection: params.currentDirection
-          }
+          transaction,
+          type: 'drift_take_profit',
+          marketIndex: params.marketIndex,
+          amount: params.amount,
+          triggerPrice: params.triggerPrice,
+          currentDirection: params.currentDirection,
         }
       }
 
       case 'get_positions': {
-        const positions = await DriftService.getPositions()
+        const params = toolInput as GetPositionsParams
+        const positions = await DriftService.getPositions(params.userPublicKey)
         return {
           success: true,
           message: `Found ${positions.length} open position(s)`,
@@ -133,49 +182,50 @@ export async function handleToolCall(toolName: string, toolInput: any): Promise<
 
       case 'close_position': {
         const params = toolInput as ClosePositionParams
-        const txSig = await DriftService.closePosition(params.marketIndex)
+        const { transaction } = await DriftService.buildClosePositionTx(
+          params.userPublicKey,
+          params.marketIndex,
+        )
         return {
-          success: true,
-          transactionSignature: txSig,
-          message: `Position closed successfully for market ${params.marketIndex}`,
-          data: {
-            marketIndex: params.marketIndex
-          }
+          transaction,
+          type: 'drift_close_position',
+          marketIndex: params.marketIndex,
         }
       }
 
       case 'cancel_order': {
         const params = toolInput as CancelOrderParams
-        const txSig = await DriftService.cancelOrder(params.orderId)
+        const { transaction } = await DriftService.buildCancelOrderTx(
+          params.userPublicKey,
+          params.orderId,
+        )
         return {
-          success: true,
-          transactionSignature: txSig,
-          message: `Order ${params.orderId} cancelled successfully`,
-          data: {
-            orderId: params.orderId
-          }
+          transaction,
+          type: 'drift_cancel_order',
+          orderId: params.orderId,
         }
       }
 
       case 'cancel_all_orders': {
         const params = toolInput as CancelAllOrdersParams
-        const txSig = await DriftService.cancelAllOrders(params.marketIndex)
+        const { transaction } = await DriftService.buildCancelAllOrdersTx(
+          params.userPublicKey,
+          params.marketIndex,
+        )
         const msg = params.marketIndex !== undefined
-          ? `All orders cancelled for market ${params.marketIndex}`
-          : 'All orders cancelled across all markets'
+          ? `Cancel all orders for market ${params.marketIndex}`
+          : 'Cancel all orders across all markets'
         return {
-          success: true,
-          transactionSignature: txSig,
+          transaction,
+          type: 'drift_cancel_all_orders',
+          marketIndex: params.marketIndex,
           message: msg,
-          data: {
-            marketIndex: params.marketIndex
-          }
         }
       }
 
       case 'get_orders': {
         const params = toolInput as GetOrdersParams
-        const orders = await DriftService.getOrders(params.marketIndex)
+        const orders = await DriftService.getOrders(params.userPublicKey, params.marketIndex)
         const msg = params.marketIndex !== undefined
           ? `Found ${orders.length} order(s) for market ${params.marketIndex}`
           : `Found ${orders.length} open order(s)`

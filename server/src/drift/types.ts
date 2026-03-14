@@ -1,15 +1,33 @@
 // Drift Protocol Types
 
+export interface InitializeDriftAccountParams {
+  userPublicKey: string
+}
+
+export interface DepositDriftCollateralParams {
+  amount: number
+  marketIndex?: number
+  userPublicKey: string
+}
+
+export interface WithdrawDriftCollateralParams {
+  amount: number
+  marketIndex?: number
+  userPublicKey: string
+}
+
 export interface PlaceLongOrderParams {
   marketIndex: number
   amount: number
   slippageBps?: number
+  userPublicKey: string
 }
 
 export interface PlaceShortOrderParams {
   marketIndex: number
   amount: number
   slippageBps?: number
+  userPublicKey: string
 }
 
 export interface PlaceLimitOrderParams {
@@ -17,6 +35,7 @@ export interface PlaceLimitOrderParams {
   direction: 'LONG' | 'SHORT'
   amount: number
   price: number
+  userPublicKey: string
 }
 
 export interface SetStopLossParams {
@@ -24,6 +43,7 @@ export interface SetStopLossParams {
   amount: number
   triggerPrice: number
   currentDirection: 'LONG' | 'SHORT'
+  userPublicKey: string
 }
 
 export interface SetTakeProfitParams {
@@ -31,22 +51,31 @@ export interface SetTakeProfitParams {
   amount: number
   triggerPrice: number
   currentDirection: 'LONG' | 'SHORT'
+  userPublicKey: string
 }
 
 export interface ClosePositionParams {
   marketIndex: number
+  userPublicKey: string
 }
 
 export interface CancelOrderParams {
   orderId: number
+  userPublicKey: string
 }
 
 export interface CancelAllOrdersParams {
   marketIndex?: number
+  userPublicKey: string
+}
+
+export interface GetPositionsParams {
+  userPublicKey: string
 }
 
 export interface GetOrdersParams {
   marketIndex?: number
+  userPublicKey: string
 }
 
 export interface GetMarketInfoParams {
