@@ -39,6 +39,16 @@ app.use('/api/user', userRouter)
 app.use('/api/tapestry', tapestryRouter)
 app.use('/api/hotwallet', hotWalletRouter)
 
+// Global JSON error handler — prevents Express from returning HTML error pages
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err)
+  const status = err.status || err.statusCode || 500
+  res.status(status).json({
+    error: err.name || 'Internal Server Error',
+    message: err.message || 'An unexpected error occurred',
+  })
+})
+
 app.listen(3050, () => {
   console.log('Server started on port 3050')
 })

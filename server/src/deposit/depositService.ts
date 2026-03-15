@@ -57,8 +57,8 @@ export async function prepareDeposit(
   const treasuryPubkey = new PublicKey(TREASURY_WALLET);
   const usdcMintPubkey = new PublicKey(USDC_MINT);
 
-  const senderATA = getAssociatedTokenAddressSync(usdcMintPubkey, senderPubkey);
-  const treasuryATA = getAssociatedTokenAddressSync(usdcMintPubkey, treasuryPubkey);
+  const senderATA = getAssociatedTokenAddressSync(usdcMintPubkey, senderPubkey, true);
+  const treasuryATA = getAssociatedTokenAddressSync(usdcMintPubkey, treasuryPubkey, true);
 
   const USDC_DECIMALS = 6;
   const rawAmount = BigInt(Math.round(amount * 10 ** USDC_DECIMALS));
