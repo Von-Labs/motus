@@ -1,5 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import { PublicKey } from '@solana/web3.js';
 import { db } from '../db/supabase';
+import { reportErrorToDiscord } from '../utils/errorReporter';
+
+function isValidSolanaAddress(address: string): boolean {
+  try {
+    const pubkey = new PublicKey(address);
+    return PublicKey.isOnCurve(pubkey);
+  } catch {
+    return false;
+  }
+}
 
 // Extend Express Request to include usage tracking
 declare global {
@@ -29,11 +40,21 @@ export const checkBalance = async (
     const walletAddress = req.headers['x-wallet-address'] as string;
 
     if (!walletAddress) {
-      // Allow request without wallet address (for testing/development)
-      // Usage won't be tracked
-      console.warn('⚠️  No wallet address provided - usage will not be tracked');
-      next();
-      return;
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Wallet address is required',
+      });
+    }
+
+    if (!isValidSolanaAddress(walletAddress)) {
+      reportErrorToDiscord(`Invalid wallet address attempt: ${walletAddress}`, {
+        source: 'checkBalance',
+        endpoint: req.path,
+      }).catch(() => {});
+      return res.status(400).json({
+        error: 'Invalid wallet address',
+        message: 'Please provide a valid Solana wallet address',
+      });
     }
 
     // Get or create user

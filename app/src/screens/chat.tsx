@@ -34,13 +34,16 @@ import {
 } from "../utils/conversationStorage";
 import {
   formatCancelOrderDetails,
+  formatDriftOrderDetails,
   formatSendDetails,
   formatSwapDetails,
   formatTriggerOrderDetails,
+  handleDriftTransaction,
   handleSendTransaction,
   handleSwapTransaction,
   handleTriggerTransaction,
   isCancelOrderTransaction,
+  isDriftSignableTransaction,
   isSendTransaction,
   isSwapTransaction,
   isTriggerOrderTransaction,
@@ -508,6 +511,47 @@ Always confirm the wallet address before performing any transactions.`;
                     localResponse =
                       localResponse +
                       `❌ **Send failed:** ${error.message}\n\n`;
+
+                    messageArray[messageArray.length - 1].assistant =
+                      localResponse;
+                    updateChatState(modelLabel, (prev) => ({
+                      ...prev,
+                      messages: JSON.parse(JSON.stringify(messageArray)),
+                    }));
+                  });
+              }
+
+              // Check if this is a Drift transaction requiring signing
+              if (isDriftSignableTransaction(data.result)) {
+                console.log(
+                  "Drift transaction detected, prompting user to sign...",
+                );
+
+                localResponse =
+                  localResponse +
+                  formatDriftOrderDetails(data.result) +
+                  "\n\n";
+
+                handleDriftTransaction(data.result, data.name, swapHandlerOptions)
+                  .then((signature) => {
+                    console.log("Drift order executed:", signature);
+                    localResponse =
+                      localResponse +
+                      `✅ **Drift order executed!**\n\nTransaction: [${signature.slice(0, 8)}...${signature.slice(-8)}](https://solscan.io/tx/${signature})\n\n`;
+
+                    messageArray[messageArray.length - 1].assistant =
+                      localResponse;
+                    updateChatState(modelLabel, (prev) => ({
+                      ...prev,
+                      messages: JSON.parse(JSON.stringify(messageArray)),
+                    }));
+                  })
+                  .catch((error) => {
+                    if (error instanceof UserCancelledError) return;
+                    console.error("Drift order failed:", error);
+                    localResponse =
+                      localResponse +
+                      `❌ **Drift order failed:** ${error.message}\n\n`;
 
                     messageArray[messageArray.length - 1].assistant =
                       localResponse;
