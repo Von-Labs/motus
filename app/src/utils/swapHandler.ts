@@ -265,46 +265,33 @@ export function formatCancelOrderDetails(cancelData: any): string {
 
 /**
  * Handle Drift Protocol perpetual transaction (LONG/SHORT/limit orders)
- * @param driftData - The Drift tool result containing transaction
+ * Now uses client-side signing like Jupiter pattern.
+ * @param driftData - The Drift tool result containing unsigned transaction
  * @param toolName - Name of the Drift tool used
+ * @param options - Optional hot wallet signer and cluster
  * @returns Transaction signature
  */
 export async function handleDriftTransaction(
   driftData: any,
-  toolName: string
+  toolName: string,
+  options?: SwapHandlerOptions,
 ): Promise<string> {
-  if (!driftData.transactionSignature) {
-    throw new Error("No transaction signature found in Drift data");
+  if (!driftData.transaction) {
+    throw new Error("No transaction found in Drift data");
   }
 
-  const signature = driftData.transactionSignature;
+  const { signature, signer } = await signAndSendTransactionFromBase64(
+    driftData.transaction,
+    {
+      cluster: options?.cluster ?? "mainnet-beta",
+      hotWallet: options?.hotWallet ?? null,
+    },
+  );
 
-  // Save transaction to database
   try {
-    // Determine transaction type based on tool name
-    let type: string;
-    if (toolName === 'place_long_order' || toolName === 'place_short_order') {
-      type = 'drift_market_order';
-    } else if (toolName === 'place_limit_order') {
-      type = 'drift_limit_order';
-    } else if (toolName === 'set_stop_loss') {
-      type = 'drift_stop_loss';
-    } else if (toolName === 'set_take_profit') {
-      type = 'drift_take_profit';
-    } else if (toolName === 'close_position') {
-      type = 'drift_close_position';
-    } else if (toolName === 'cancel_order' || toolName === 'cancel_all_orders') {
-      type = 'drift_cancel_order';
-    } else {
-      type = 'drift_other';
-    }
-
-    await createWalletTransaction(
-      type,
-      signature,
-      'success',
-      driftData.data
-    );
+    const type = driftData.type || 'drift_other';
+    const { transaction: _tx, ...metadata } = driftData;
+    await createWalletTransaction(type, signature, 'success', metadata, signer);
   } catch (error: any) {
     console.error('Failed to save Drift transaction to database:', error);
     reportErrorToDiscord(error?.message || String(error), { source: 'swapHandler > handleDriftTransaction (db save)' }).catch(() => {});
@@ -314,89 +301,97 @@ export async function handleDriftTransaction(
 }
 
 /**
- * Check if a tool result is a Drift transaction
+ * Check if a tool result is a Drift transaction that needs signing
  */
-export function isDriftTransaction(data: any, toolName?: string): boolean {
-  // Check if it's a Drift tool by name
-  const driftToolNames = [
-    'place_long_order',
-    'place_short_order',
-    'place_limit_order',
-    'set_stop_loss',
-    'set_take_profit',
-    'get_positions',
-    'close_position',
-    'cancel_order',
-    'cancel_all_orders',
-    'get_orders',
-    'get_market_info'
-  ];
-
-  if (toolName && driftToolNames.includes(toolName)) {
-    return true;
-  }
-
-  // Check by data structure
+export function isDriftSignableTransaction(data: any): boolean {
   return (
     data &&
     typeof data === 'object' &&
-    'success' in data &&
-    data.success === true &&
-    ('transactionSignature' in data || 'data' in data)
+    'transaction' in data &&
+    'type' in data &&
+    typeof data.type === 'string' &&
+    data.type.startsWith('drift_')
   );
 }
 
 /**
  * Format Drift order details for display
  */
-export function formatDriftOrderDetails(driftData: any, toolName: string): string {
-  if (!driftData || !driftData.data) return '';
+export function formatDriftOrderDetails(driftData: any): string {
+  if (!driftData) return '';
 
-  const data = driftData.data;
+  const type = driftData.type;
 
-  if (toolName === 'place_long_order' || toolName === 'place_short_order') {
+  if (type === 'drift_initialize_account') {
+    return '**Initialize Drift Account**';
+  }
+
+  if (type === 'drift_deposit') {
     return `
-**Drift ${data.direction} Order:**
-- Market Index: ${data.marketIndex}
-- Amount: ${data.amount}
-- Slippage: ${(data.slippageBps || 50) / 100}%
+**Drift Deposit:**
+- Amount: ${driftData.amount} (smallest unit)
+- Market Index: ${driftData.marketIndex || 0}
     `.trim();
   }
 
-  if (toolName === 'place_limit_order') {
+  if (type === 'drift_withdraw') {
+    return `
+**Drift Withdraw:**
+- Amount: ${driftData.amount} (smallest unit)
+- Market Index: ${driftData.marketIndex || 0}
+    `.trim();
+  }
+
+  if (type === 'drift_market_order') {
+    return `
+**Drift ${driftData.direction} Order:**
+- Market Index: ${driftData.marketIndex}
+- Amount: ${driftData.amount}
+- Slippage: ${(driftData.slippageBps || 50) / 100}%
+    `.trim();
+  }
+
+  if (type === 'drift_limit_order') {
     return `
 **Drift Limit Order:**
-- Market Index: ${data.marketIndex}
-- Direction: ${data.direction}
-- Amount: ${data.amount}
-- Price: $${data.price}
+- Market Index: ${driftData.marketIndex}
+- Direction: ${driftData.direction}
+- Amount: ${driftData.amount}
+- Price: $${driftData.price}
     `.trim();
   }
 
-  if (toolName === 'set_stop_loss') {
+  if (type === 'drift_stop_loss') {
     return `
 **Drift Stop Loss:**
-- Market Index: ${data.marketIndex}
-- Amount: ${data.amount}
-- Trigger Price: $${data.triggerPrice}
-- Position: ${data.currentDirection}
+- Market Index: ${driftData.marketIndex}
+- Amount: ${driftData.amount}
+- Trigger Price: $${driftData.triggerPrice}
+- Position: ${driftData.currentDirection}
     `.trim();
   }
 
-  if (toolName === 'set_take_profit') {
+  if (type === 'drift_take_profit') {
     return `
 **Drift Take Profit:**
-- Market Index: ${data.marketIndex}
-- Amount: ${data.amount}
-- Trigger Price: $${data.triggerPrice}
-- Position: ${data.currentDirection}
+- Market Index: ${driftData.marketIndex}
+- Amount: ${driftData.amount}
+- Trigger Price: $${driftData.triggerPrice}
+- Position: ${driftData.currentDirection}
     `.trim();
   }
 
-  if (toolName === 'close_position') {
+  if (type === 'drift_close_position') {
     return `
 **Drift Close Position:**
-- Market Index: ${data.marketIndex}
+- Market Index: ${driftData.marketIndex}
+    `.trim();
+  }
+
+  if (type === 'drift_cancel_order' || type === 'drift_cancel_all_orders') {
+    return `
+**Drift Cancel Order:**
+${driftData.orderId ? `- Order ID: ${driftData.orderId}` : `- Cancel all${driftData.marketIndex !== undefined ? ` for market ${driftData.marketIndex}` : ''}`}
     `.trim();
   }
 
