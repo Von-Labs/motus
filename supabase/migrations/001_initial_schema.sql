@@ -91,9 +91,9 @@ CREATE TABLE IF NOT EXISTS model_pricing (
 
 -- Insert Claude pricing (Anthropic models only)
 INSERT INTO model_pricing (model_name, provider, input_price_per_1m, output_price_per_1m) VALUES
-  ('claude-opus-4-5-20251101', 'anthropic', 5.00, 25.00),
-  ('claude-sonnet-4-5-20250929', 'anthropic', 3.00, 15.00),
-  ('claude-haiku-4-5-20251001', 'anthropic', 1.00, 5.00)
+  ('claude-opus-4-5-20251101', 'anthropic', 10.00, 50.00),
+  ('claude-sonnet-4-5-20250929', 'anthropic', 6.00, 30.00),
+  ('claude-haiku-4-5-20251001', 'anthropic', 2.00, 10.00)
 ON CONFLICT (model_name) DO NOTHING;
 
 -- Function to update updated_at timestamp

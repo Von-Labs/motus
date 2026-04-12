@@ -17,18 +17,18 @@ interface ModelConfig {
 const models: Record<ModelLabel, ModelConfig> = {
   claudeOpus: {
     name: 'claude-opus-4-5-20251101',
-    inputPricePer1M: 5.00,
-    outputPricePer1M: 25.00
+    inputPricePer1M: 10.00,
+    outputPricePer1M: 50.00
   },
   claudeSonnet: {
     name: 'claude-sonnet-4-5-20250929',
-    inputPricePer1M: 3.00,
-    outputPricePer1M: 15.00
+    inputPricePer1M: 6.00,
+    outputPricePer1M: 30.00
   },
   claudeHaiku: {
     name: 'claude-haiku-4-5-20251001',
-    inputPricePer1M: 1.00,
-    outputPricePer1M: 5.00
+    inputPricePer1M: 2.00,
+    outputPricePer1M: 10.00
   }
 }
 
