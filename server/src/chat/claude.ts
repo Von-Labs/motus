@@ -1,35 +1,23 @@
-import { Request, Response, NextFunction } from "express"
+import { Request, Response } from "express"
 import asyncHandler from 'express-async-handler'
 import { db } from '../db/supabase'
+import { BedrockRuntimeClient, ConverseStreamCommand } from "@aws-sdk/client-bedrock-runtime"
+import { models, ModelLabel } from './models'
 
-type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
-type ModelName =
-  | 'claude-opus-4-5-20251101'
-  | 'claude-sonnet-4-5-20250929'
-  | 'claude-haiku-4-5-20251001';
+const bedrockClient = new BedrockRuntimeClient({
+  region: process.env.AWS_REGION || 'us-east-1'
+})
 
-interface ModelConfig {
-  name: ModelName;
-  inputPricePer1M: number;  // USD per 1M tokens
-  outputPricePer1M: number; // USD per 1M tokens
-}
-
-const models: Record<ModelLabel, ModelConfig> = {
-  claudeOpus: {
-    name: 'claude-opus-4-5-20251101',
-    inputPricePer1M: 10.00,
-    outputPricePer1M: 50.00
-  },
-  claudeSonnet: {
-    name: 'claude-sonnet-4-5-20250929',
-    inputPricePer1M: 6.00,
-    outputPricePer1M: 30.00
-  },
-  claudeHaiku: {
-    name: 'claude-haiku-4-5-20251001',
-    inputPricePer1M: 2.00,
-    outputPricePer1M: 10.00
+function toBedrockContent(content: any): { text: string }[] {
+  if (typeof content === 'string') return [{ text: content }]
+  if (Array.isArray(content)) {
+    return content.map(block => {
+      if (typeof block === 'string') return { text: block }
+      if (block.type === 'text') return { text: block.text }
+      return { text: JSON.stringify(block) }
+    })
   }
+  return [{ text: String(content) }]
 }
 
 interface RequestBody {
@@ -49,7 +37,6 @@ export const claude = asyncHandler(async (req: Request, res: Response) => {
     })
 
     const { prompt, model }: RequestBody = req.body
-    // Force Haiku for free requests, use UI-selected model for paid
     const effectiveModel = req.isFreeRequest ? 'claudeHaiku' : model
     const modelConfig = models[effectiveModel]
     const walletAddress = req.headers['x-wallet-address'] as string
@@ -60,86 +47,48 @@ export const claude = asyncHandler(async (req: Request, res: Response) => {
       return
     }
 
-    const decoder = new TextDecoder()
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'messages-2023-12-15',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || ''
-      },
-      body: JSON.stringify({
-        model: modelConfig.name,
-        "messages": [{"role": "user", "content": prompt }],
-        "max_tokens": 4096,
-        stream: true
-      })
+    const command = new ConverseStreamCommand({
+      modelId: modelConfig.bedrockId,
+      messages: [
+        {
+          role: 'user',
+          content: toBedrockContent(prompt)
+        }
+      ],
+      inferenceConfig: { maxTokens: 4096 }
     })
 
-    const reader = response.body?.getReader()
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read()
+    const response = await bedrockClient.send(command)
 
-        if (done) {
-          break
+    if (response.stream) {
+      for await (const event of response.stream) {
+        if (event.contentBlockDelta?.delta?.text) {
+          res.write(`data: ${JSON.stringify({ type: 'text_delta', text: event.contentBlockDelta.delta.text })}\n\n`)
         }
-
-        let chunk = decoder.decode(value)
-
-        const lines = chunk.split("\n")
-
-        const parsedLines = lines
-          .filter(line => line.startsWith('data: '))
-          .map(line => {
-            try {
-              return JSON.parse(line.replace('data: ', ''))
-            } catch {
-              return null
-            }
-          })
-          .filter(Boolean)
-
-        for (const parsedLine of parsedLines) {
-          if (parsedLine) {
-            // Track usage from message_delta events
-            if (parsedLine.type === 'message_delta' && parsedLine.usage) {
-              outputTokens = parsedLine.usage.output_tokens || 0
-            }
-
-            // Track usage from message_start event
-            if (parsedLine.type === 'message_start' && parsedLine.message?.usage) {
-              inputTokens = parsedLine.message.usage.input_tokens || 0
-            }
-
-            if (parsedLine.delta && parsedLine.delta.text) {
-              res.write(`data: ${JSON.stringify(parsedLine.delta)}\n\n`)
-            }
-          }
+        if (event.metadata?.usage) {
+          inputTokens = event.metadata.usage.inputTokens || 0
+          outputTokens = event.metadata.usage.outputTokens || 0
         }
       }
-
-      // Track usage in database after streaming completes
-      if (walletAddress && inputTokens > 0 && outputTokens > 0) {
-        try {
-          await db.processApiRequest({
-            walletAddress,
-            model: modelConfig.name,
-            requestType: 'chat',
-            inputTokens,
-            outputTokens,
-            endpoint: req.path
-          })
-        } catch (trackingErr) {
-          console.error('Failed to track usage:', trackingErr)
-          // Don't fail the request if tracking fails
-        }
-      }
-
-      res.write('data: [DONE]\n\n')
-      res.end()
     }
+
+    if (walletAddress && inputTokens > 0 && outputTokens > 0) {
+      try {
+        await db.processApiRequest({
+          walletAddress,
+          model: modelConfig.name,
+          requestType: 'chat',
+          inputTokens,
+          outputTokens,
+          endpoint: req.path
+        })
+      } catch (trackingErr) {
+        console.error('Failed to track usage:', trackingErr)
+      }
+    }
+
+    res.write('data: [DONE]\n\n')
+    res.end()
   } catch (err) {
     console.log('error in claude chat: ', err)
     res.write('data: [DONE]\n\n')

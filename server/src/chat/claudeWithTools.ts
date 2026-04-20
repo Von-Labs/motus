@@ -1,10 +1,12 @@
 import { Request, Response } from 'express'
 import asyncHandler from 'express-async-handler'
+import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'
 import { jupiterTools, handleToolCall as handleJupiterToolCall } from '../jupiter'
 import { sendTools, handleToolCall as handleSendToolCall } from '../sends'
 import { tapestryTools, handleToolCall as handleTapestryToolCall } from '../services/tapestry'
 import { db } from '../db/supabase'
 import { reportErrorToDiscord } from '../utils/errorReporter'
+import { models, ModelLabel } from './models'
 
 // Lazy-load Drift to avoid crashing on Windows when yellowstone-grpc native binding is missing
 let _driftModule: { driftTools: any[]; handleToolCall: (name: string, input: any) => Promise<any> } | null | undefined = undefined
@@ -26,34 +28,48 @@ async function handleDriftToolCall (name: string, input: any) {
   return mod.handleToolCall(name, input)
 }
 
-type ModelLabel = 'claudeOpus' | 'claudeSonnet' | 'claudeHaiku'
-type ModelName =
-  | 'claude-opus-4-5-20251101'
-  | 'claude-sonnet-4-5-20250929'
-  | 'claude-haiku-4-5-20251001'
+const bedrockClient = new BedrockRuntimeClient({
+  region: process.env.AWS_REGION || 'us-east-1'
+})
 
-interface ModelConfig {
-  name: ModelName;
-  inputPricePer1M: number;  // USD per 1M tokens
-  outputPricePer1M: number; // USD per 1M tokens
+// Convert Anthropic tool definitions to Bedrock toolSpec format
+function toBedrockTools (anthropicTools: any[]): any[] {
+  return anthropicTools.map(tool => ({
+    toolSpec: {
+      name: tool.name,
+      description: tool.description,
+      inputSchema: { json: tool.input_schema }
+    }
+  }))
 }
 
-const models: Record<ModelLabel, ModelConfig> = {
-  claudeOpus: {
-    name: 'claude-opus-4-5-20251101',
-    inputPricePer1M: 10.00,
-    outputPricePer1M: 50.00
-  },
-  claudeSonnet: {
-    name: 'claude-sonnet-4-5-20250929',
-    inputPricePer1M: 6.00,
-    outputPricePer1M: 30.00
-  },
-  claudeHaiku: {
-    name: 'claude-haiku-4-5-20251001',
-    inputPricePer1M: 2.00,
-    outputPricePer1M: 10.00
+// Convert a single Anthropic content block to a Bedrock content block
+function anthropicBlockToBedrockBlock (block: any): any {
+  if (typeof block === 'string') return { text: block }
+  if (block.type === 'text') return { text: block.text }
+  if (block.type === 'tool_use') {
+    return { toolUse: { toolUseId: block.id, name: block.name, input: block.input } }
   }
+  if (block.type === 'tool_result') {
+    const text = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
+    return { toolResult: { toolUseId: block.tool_use_id, content: [{ text }] } }
+  }
+  return { text: JSON.stringify(block) }
+}
+
+// Convert Anthropic messages array to Bedrock messages format
+function toBedrockMessages (messages: any[]): any[] {
+  return messages.map(msg => {
+    let content: any[]
+    if (typeof msg.content === 'string') {
+      content = [{ text: msg.content }]
+    } else if (Array.isArray(msg.content)) {
+      content = msg.content.map(anthropicBlockToBedrockBlock)
+    } else {
+      content = [{ text: JSON.stringify(msg.content) }]
+    }
+    return { role: msg.role, content }
+  })
 }
 
 interface Message {
@@ -194,113 +210,93 @@ Tapestry Social Tools Guide:
 
 Always ask for wallet address when needed. Be helpful and educational about DeFi concepts.`
 
-      // Start conversation loop with tool support
-      let conversationMessages = [...messages]
+      const allAnthropicTools = [...jupiterTools, ...getDriftTools(), ...tapestryTools, ...sendTools]
+      const bedrockTools = toBedrockTools(allAnthropicTools)
+
+      // Start conversation loop with tool support — messages kept in Bedrock format
+      let bedrockMessages = toBedrockMessages(messages)
       let continueLoop = true
 
-      const apiKey = process.env.ANTHROPIC_API_KEY
-
       while (continueLoop) {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'anthropic-version': '2023-06-01',
-            'x-api-key': apiKey || ''
-          },
-          body: JSON.stringify({
-            model: modelConfig.name,
-            messages: conversationMessages,
-            max_tokens: 4096,
-            system: systemPrompt || defaultSystemPrompt,
-            tools: [...jupiterTools, ...getDriftTools(), ...tapestryTools, ...sendTools]
-          })
+        const command = new ConverseCommand({
+          modelId: modelConfig.bedrockId,
+          messages: bedrockMessages,
+          system: [{ text: systemPrompt || defaultSystemPrompt }],
+          toolConfig: { tools: bedrockTools },
+          inferenceConfig: { maxTokens: 4096 }
         })
 
-        if (!response.ok) {
-          const errorBody = await response.text()
-          console.error(`Anthropic API ${response.status}:`, errorBody)
-          throw new Error(`Anthropic API error: ${response.status} - ${errorBody}`)
-        }
-
-        const result = await response.json()
+        const result = await bedrockClient.send(command)
 
         // Track token usage from this API call
         if (result.usage) {
-          totalInputTokens += result.usage.input_tokens || 0
-          totalOutputTokens += result.usage.output_tokens || 0
+          totalInputTokens += result.usage.inputTokens || 0
+          totalOutputTokens += result.usage.outputTokens || 0
         }
 
+        const responseContent = result.output?.message?.content ?? []
+
         // Stream assistant's text response
-        if (result.content) {
-          for (const block of result.content) {
-            if (block.type === 'text') {
-              res.write(
-                `data: ${JSON.stringify({ type: 'text', text: block.text })}\n\n`
-              )
-            }
+        for (const block of responseContent) {
+          if (block.text) {
+            res.write(
+              `data: ${JSON.stringify({ type: 'text', text: block.text })}\n\n`
+            )
           }
         }
 
         // Check if Claude wants to use tools
-        const toolUseBlocks = result.content?.filter(
-          (block: any) => block.type === 'tool_use'
-        )
+        const toolUseBlocks = responseContent.filter((block: any) => block.toolUse)
 
-        if (toolUseBlocks && toolUseBlocks.length > 0) {
-          // Add assistant message to conversation
-          conversationMessages.push({
+        if (result.stopReason === 'tool_use' && toolUseBlocks.length > 0) {
+          // Add assistant message (with tool use blocks) to conversation
+          bedrockMessages.push({
             role: 'assistant',
-            content: result.content
+            content: responseContent
           })
 
-          // Execute tools and collect results
-          const toolResults = []
+          // Execute tools and collect Bedrock-format results
+          const toolResultBlocks: any[] = []
 
-          for (const toolUse of toolUseBlocks) {
+          for (const block of toolUseBlocks) {
+            const { toolUseId, name = '', input } = block.toolUse!
+
             res.write(
-              `data: ${JSON.stringify({
-                type: 'tool_use',
-                name: toolUse.name,
-                input: toolUse.input
-              })}\n\n`
+              `data: ${JSON.stringify({ type: 'tool_use', name, input })}\n\n`
             )
 
-            // Execute the tool - route to correct handler based on tool name
-            const isDriftTool = getDriftTools().some(tool => tool.name === toolUse.name)
-            const isTapestryTool = tapestryTools.some(tool => tool.name === toolUse.name)
-            const isSendTool = sendTools.some(tool => tool.name === toolUse.name)
+            // Route to correct handler based on tool name
+            const isDriftTool = getDriftTools().some((t: any) => t.name === name)
+            const isTapestryTool = tapestryTools.some((t: any) => t.name === name)
+            const isSendTool = sendTools.some((t: any) => t.name === name)
             let toolResult
             if (isDriftTool) {
-              toolResult = await handleDriftToolCall(toolUse.name, toolUse.input)
+              toolResult = await handleDriftToolCall(name, input)
             } else if (isTapestryTool) {
-              toolResult = await handleTapestryToolCall(toolUse.name, toolUse.input)
+              toolResult = await handleTapestryToolCall(name, input)
             } else if (isSendTool) {
-              toolResult = await handleSendToolCall(toolUse.name, toolUse.input)
+              toolResult = await handleSendToolCall(name, input)
             } else {
-              toolResult = await handleJupiterToolCall(toolUse.name, toolUse.input)
+              toolResult = await handleJupiterToolCall(name, input)
             }
 
-            toolResults.push({
-              type: 'tool_result',
-              tool_use_id: toolUse.id,
-              content: JSON.stringify(toolResult)
+            toolResultBlocks.push({
+              toolResult: {
+                toolUseId,
+                content: [{ text: JSON.stringify(toolResult) }]
+              }
             })
 
             // Stream tool result
             res.write(
-              `data: ${JSON.stringify({
-                type: 'tool_result',
-                name: toolUse.name,
-                result: toolResult
-              })}\n\n`
+              `data: ${JSON.stringify({ type: 'tool_result', name, result: toolResult })}\n\n`
             )
           }
 
-          // Add tool results to conversation
-          conversationMessages.push({
+          // Add tool results as user message
+          bedrockMessages.push({
             role: 'user',
-            content: toolResults
+            content: toolResultBlocks
           })
 
           // Continue loop to get Claude's response with tool results
